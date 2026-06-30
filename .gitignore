@@ -1,0 +1,7 @@
+backend/venv/
+backend/venv/
+backend/venv
+venv/
+backend/test.sqlite
+.pytest_cache
+__pycache__
