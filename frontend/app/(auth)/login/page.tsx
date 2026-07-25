@@ -21,11 +21,13 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+    if (!cleanEmail || !cleanPassword) return;
 
     setLoading(true);
     try {
-      const { access_token } = await authService.login(email, password);
+      const { access_token } = await authService.login(cleanEmail, cleanPassword);
       
       // Temporary token placement to get 'me'
       localStorage.setItem("access_token", access_token);
