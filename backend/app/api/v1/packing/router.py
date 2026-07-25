@@ -11,7 +11,7 @@ from app.schemas.packing_list import (
     PackingListItemUpdate,
 )
 
-router = APIRouter(prefix="/packing", tags=["packing"])
+router = APIRouter()
 
 
 @router.get("/", response_model=List[PackingList])
