@@ -16,16 +16,7 @@ from contextlib import asynccontextmanager
 async def lifespan(app: FastAPI):
     # Ensure all tables exist in database on startup
     from app.database.base_class import Base
-    # Import models so Base knows about them before create_all
-    from app.models.user import User
-    from app.models.settings import Settings
-    from app.models.customer import Customer
-    from app.models.product import Product
-    from app.models.customer_product_template import CustomerProductTemplate
-    from app.models.order import Order, OrderItem
-    from app.models.invoice import Invoice, InvoiceItem
-    from app.models.payment import Payment
-    from app.models.audit_log import AuditLog
+    import app.models
     
     Base.metadata.create_all(bind=engine)
     

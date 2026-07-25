@@ -10,19 +10,18 @@ def seed_db():
     db = SessionLocal()
     
     # 1. Admin User
-    admin = db.query(User).filter(User.email == "admin@freshflow.local").first()
-    if not admin:
-        admin = User(
-            email="admin@freshflow.local",
-            password_hash=get_password_hash("admin123"),
-            role="ADMIN"
-        )
-        db.add(admin)
-        db.commit()
-        db.refresh(admin)
-        print("Created admin user.")
-    else:
-        print("Admin user already exists.")
+    for admin_email in ["admin@freshflow.local", "admin@freshflow.com"]:
+        admin = db.query(User).filter(User.email == admin_email).first()
+        if not admin:
+            admin = User(
+                email=admin_email,
+                password_hash=get_password_hash("admin123"),
+                role="ADMIN"
+            )
+            db.add(admin)
+            db.commit()
+            db.refresh(admin)
+            print(f"Created admin user: {admin_email}")
 
     # 2. Settings
     settings = db.query(Settings).first()
