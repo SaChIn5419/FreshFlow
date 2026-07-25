@@ -40,8 +40,8 @@ export default function LoginPage() {
       } else {
         router.push("/order");
       }
-    } catch (err) {
-      toast.error("Invalid email or password");
+    } catch (err: any) {
+      toast.error(err?.message || "Invalid email or password");
     } finally {
       setLoading(false);
     }

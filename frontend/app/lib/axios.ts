@@ -1,10 +1,17 @@
 import axios from 'axios';
 import { toast } from 'sonner';
 
-const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+export const getApiUrl = () => {
+  let url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+  url = url.trim().replace(/\/+$/, '');
+  if (!url.endsWith('/api/v1')) {
+    url = `${url}/api/v1`;
+  }
+  return url;
+};
 
 export const apiClient = axios.create({
-  baseURL,
+  baseURL: getApiUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -13,6 +20,8 @@ export const apiClient = axios.create({
 // Request Interceptor: Attach token if it exists
 apiClient.interceptors.request.use(
   (config) => {
+    // Dynamically update baseURL in case env var changes
+    config.baseURL = getApiUrl();
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('access_token');
       if (token) {
@@ -44,8 +53,6 @@ apiClient.interceptors.response.use(
         toast.error("Your session has expired. Please log in again.");
       }
     } else if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
       const status = error.response.status;
       if (status === 403) {
         toast.error("You don't have permission for this action.");
@@ -57,7 +64,6 @@ apiClient.interceptors.response.use(
         toast.error("FreshFlow server encountered an error. We are looking into it.");
       }
     } else if (error.request) {
-      // The request was made but no response was received (Network Down)
       toast.error("Cannot connect to FreshFlow server. Please check your internet connection.");
     }
     
