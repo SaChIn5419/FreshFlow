@@ -12,18 +12,26 @@ export interface UserResponse {
   is_active: boolean;
 }
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
 export const authService = {
   login: async (email: string, password: string): Promise<LoginResponse> => {
-    const formData = new URLSearchParams();
-    formData.append('username', email); // OAuth2 expects 'username'
-    formData.append('password', password);
-    
-    const response = await apiClient.post<LoginResponse>('/auth/login', formData, {
+    // Use native fetch instead of axios to avoid axios's JSON transformRequest
+    // intercepting the form-encoded body that OAuth2PasswordRequestForm requires.
+    const response = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
+      body: `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`,
     });
-    return response.data;
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error?.detail || 'Invalid email or password');
+    }
+
+    return response.json();
   },
 
   getMe: async (): Promise<UserResponse> => {
