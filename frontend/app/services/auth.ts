@@ -1,4 +1,4 @@
-import { apiClient, getApiUrl } from '@/app/lib/axios';
+import { getApiUrl } from '@/app/lib/axios';
 
 export interface LoginResponse {
   access_token: string;
@@ -36,7 +36,20 @@ export const authService = {
   },
 
   getMe: async (): Promise<UserResponse> => {
-    const response = await apiClient.get<UserResponse>('/auth/me');
-    return response.data;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    const baseUrl = getApiUrl();
+    const response = await fetch(`${baseUrl}/auth/me`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch user profile');
+    }
+
+    return response.json();
   },
 };

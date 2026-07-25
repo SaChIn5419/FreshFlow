@@ -27,12 +27,15 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
+      console.log("Submitting login for:", cleanEmail);
       const { access_token } = await authService.login(cleanEmail, cleanPassword);
+      console.log("Received access token successfully");
       
-      // Temporary token placement to get 'me'
       localStorage.setItem("access_token", access_token);
       
       const user = await authService.getMe();
+      console.log("User profile received:", user);
+
       login(user, access_token);
       
       toast.success("Welcome back");
@@ -43,6 +46,7 @@ export default function LoginPage() {
         router.push("/order");
       }
     } catch (err: any) {
+      console.error("Login failed:", err);
       toast.error(err?.message || "Invalid email or password");
     } finally {
       setLoading(false);
@@ -70,7 +74,7 @@ export default function LoginPage() {
               <Input 
                 id="email" 
                 type="email" 
-                placeholder="m@example.com" 
+                placeholder="admin@freshflow.local" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
