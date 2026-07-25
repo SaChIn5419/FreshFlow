@@ -22,6 +22,10 @@ def seed_db():
             db.commit()
             db.refresh(admin)
             print(f"Created admin user: {admin_email}")
+        else:
+            admin.password_hash = get_password_hash("admin123")
+            db.commit()
+            print(f"Updated password for admin user: {admin_email}")
 
     # 2. Settings
     settings = db.query(Settings).first()
@@ -59,7 +63,9 @@ def seed_db():
         db.refresh(chef)
         print("Created chef user.")
     else:
-        print("Chef user already exists.")
+        chef.password_hash = get_password_hash("chef123")
+        db.commit()
+        print("Updated password for chef user.")
 
     # 4. Demo Restaurant
     customer = db.query(Customer).filter(Customer.restaurant_name == "Demo Restaurant").first()
