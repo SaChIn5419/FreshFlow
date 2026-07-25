@@ -1,7 +1,6 @@
 import re
 import io
 import uuid
-import pdfplumber
 from rapidfuzz import process, fuzz, utils
 from typing import List, Tuple
 from sqlalchemy.orm import Session
@@ -57,6 +56,7 @@ class ParserService:
         return flattened
 
     def parse_pdf(self, file_bytes: bytes, customer_id: uuid.UUID) -> List[ParsedItem]:
+        import pdfplumber
         raw_items = []
         with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
             for page in pdf.pages:

@@ -18,10 +18,14 @@ cffi==2.1.0
     # via
     #   cryptography
     #   weasyprint
+charset-normalizer==3.4.9
+    # via pdfminer-six
 click==8.4.2
     # via uvicorn
 cryptography==49.0.0
-    # via python-jose
+    # via
+    #   pdfminer-six
+    #   python-jose
 cssselect2==0.9.0
     # via weasyprint
 dnspython==2.8.0
@@ -52,8 +56,14 @@ markupsafe==3.0.3
     # via
     #   jinja2
     #   mako
+pdfminer-six==20260107
+    # via pdfplumber
+pdfplumber==0.11.10
+    # via wholesale-vegetable-procurement (pyproject.toml)
 pillow==12.3.0
-    # via weasyprint
+    # via
+    #   pdfplumber
+    #   weasyprint
 psycopg==3.3.4
     # via wholesale-vegetable-procurement (pyproject.toml)
 psycopg-binary==3.3.4
@@ -77,6 +87,8 @@ pydyf==0.12.1
     # via weasyprint
 pyjwt==2.13.0
     # via wholesale-vegetable-procurement (pyproject.toml)
+pypdfium2==5.12.1
+    # via pdfplumber
 pyphen==0.17.2
     # via weasyprint
 python-dotenv==1.2.2
@@ -89,6 +101,8 @@ python-multipart==0.0.32
     # via wholesale-vegetable-procurement (pyproject.toml)
 pyyaml==6.0.3
     # via uvicorn
+rapidfuzz==3.14.5
+    # via wholesale-vegetable-procurement (pyproject.toml)
 rsa==4.9.1
     # via python-jose
 six==1.17.0
