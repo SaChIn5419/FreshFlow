@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Packing Slip — {{ customer.restaurant_name }}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 13px;
+      color: #1a1a1a;
+      background: #fff;
+    }
+
+    .page {
+      width: 148mm;   /* A5 width — good for warehouse printing */
+      min-height: 210mm;
+      margin: 0 auto;
+      padding: 10mm;
+    }
+
+    .header {
+      border-bottom: 2.5px solid #1a1a1a;
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+    }
+
+    .header .company-name {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .header .slip-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #555;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .meta .customer-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+
+    /* ITEMS */
+    .items {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .items tr {
+      border-bottom: 1px solid #efefef;
+    }
+
+    .items tr:last-child {
+      border-bottom: 2px solid #1a1a1a;
+    }
+
+    .items td {
+      padding: 9px 4px;
+      font-size: 13px;
+    }
+
+    .items td.product {
+      font-weight: 600;
+    }
+
+    .items td.qty {
+      text-align: right;
+      font-size: 14px;
+      font-weight: 700;
+      width: 60px;
+    }
+
+    .items td.unit {
+      text-align: right;
+      color: #666;
+      width: 40px;
+    }
+
+    /* SIGN OFF */
+    .signoff {
+      margin-top: 28px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .signoff-block {
+      width: 45%;
+    }
+
+    .signoff-block .sign-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #999;
+      margin-bottom: 24px;
+    }
+
+    .signoff-block .sign-line {
+      border-top: 1.5px solid #aaa;
+      padding-top: 4px;
+      font-size: 9px;
+      color: #aaa;
+    }
+
+    .footer {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 9px;
+      color: #ccc;
+    }
+
+    @media print {
+      body { margin: 0; }
+      .page { padding: 6mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- HEADER -->
+    <div class="header">
+      <div class="company-name">{{ settings.company_name }}</div>
+      <div class="slip-label">Packing Slip</div>
+    </div>
+
+    <!-- META -->
+    <div class="meta">
+      <div>
+        <div class="customer-name">{{ customer.restaurant_name }}</div>
+        {% if customer.address %}
+        <div style="margin-top:3px;">{{ customer.address }}</div>
+        {% endif %}
+      </div>
+      <div style="text-align:right;">
+        <div>Date: {{ order.created_at.strftime('%d %b %Y') }}</div>
+        <div style="margin-top:3px; color:#bbb;">Order #{{ order.id | string | upper | truncate(8, True, '') }}</div>
+      </div>
+    </div>
+
+    <!-- ITEMS (no prices) -->
+    <table class="items">
+      <tbody>
+        {% for item in order.items %}
+        <tr>
+          <td class="product">{{ item.product.name }}</td>
+          <td class="qty">{{ item.quantity }}</td>
+          <td class="unit">{{ item.unit }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- SIGN OFF -->
+    <div class="signoff">
+      <div class="signoff-block">
+        <div class="sign-label">Packed By</div>
+        <div class="sign-line">Signature</div>
+      </div>
+      <div class="signoff-block">
+        <div class="sign-label">Checked By</div>
+        <div class="sign-line">Signature</div>
+      </div>
+    </div>
+
+    <div class="footer">FreshFlow — Internal Use Only</div>
+  </div>
+</body>
+</html>

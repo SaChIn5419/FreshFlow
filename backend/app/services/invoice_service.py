@@ -1,139 +1,109 @@
-import os
-from datetime import datetime
-from decimal import Decimal
-from fastapi import HTTPException
-from sqlalchemy.orm import Session
-from weasyprint import HTML
-
-from app.models.order import Order, OrderStatus
+import uuid
+from typing import List
+from app.repositories import InvoiceRepository, OrderRepository, CustomerRepository, SettingsRepository
 from app.models.invoice import Invoice, InvoiceItem
-from app.models.customer import Customer
+from app.schemas.invoice import InvoiceCreate
+from app.core.exceptions import (
+    OrderNotFound, OrderEmpty, CustomerNotFound, 
+    InvoiceAlreadyGenerated, InvoiceNumberExists, CompanySettingsMissing
+)
+from app.services.audit_service import AuditService
 
-INVOICE_DIR = "app/uploads/invoices/"
-PACKING_DIR = "app/uploads/packing/"
-os.makedirs(INVOICE_DIR, exist_ok=True)
-os.makedirs(PACKING_DIR, exist_ok=True)
+class InvoiceService:
+    def __init__(
+        self, 
+        invoice_repo: InvoiceRepository, 
+        order_repo: OrderRepository,
+        customer_repo: CustomerRepository,
+        settings_repo: SettingsRepository
+    ):
+        self.invoice_repo = invoice_repo
+        self.order_repo = order_repo
+        self.customer_repo = customer_repo
+        self.settings_repo = settings_repo
 
+    def get_invoice(self, id: uuid.UUID) -> Invoice | None:
+        return self.invoice_repo.get_by_id(id)
 
-def generate_html_invoice(invoice: Invoice, customer: Customer, items: list) -> str:
-    html = f"""
-    <html>
-        <head><style>body {{ font-family: sans-serif; }} table {{ width: 100%; border-collapse: collapse; }} th, td {{ border: 1px solid #ddd; padding: 8px; }} </style></head>
-        <body>
-            <h1>Invoice: {invoice.invoice_number}</h1>
-            <p>Date: {invoice.created_at.strftime('%Y-%m-%d')}</p>
-            <p>Customer: {customer.restaurant_name}</p>
-            <p>GST: {customer.gst_number}</p>
-            <table>
-                <tr><th>Product</th><th>Quantity</th><th>Unit Price</th><th>GST</th><th>Total</th></tr>
-    """
-    for item in items:
-        html += f"<tr><td>{item.product_name}</td><td>{item.quantity}</td><td>{item.unit_price}</td><td>{item.gst}</td><td>{item.total}</td></tr>"
-    html += f"""
-            </table>
-            <h3>Subtotal: {invoice.subtotal}</h3>
-            <h3>GST: {invoice.gst}</h3>
-            <h2>Grand Total: {invoice.grand_total}</h2>
-        </body>
-    </html>
-    """
-    return html
+    def get_all_invoices(self) -> List[Invoice]:
+        return self.invoice_repo.get_all()
 
+    def create_invoice(self, data: InvoiceCreate, user_id: str) -> Invoice:
+        # Validations
+        order = self.order_repo.get_by_id(data.order_id)
+        if not order:
+            raise OrderNotFound()
+        
+        if not order.items:
+            raise OrderEmpty()
+            
+        settings = self.settings_repo.get_settings()
+        if not settings:
+            raise CompanySettingsMissing()
+            
+        # Check if invoice already exists for this order
+        existing_invoices = self.invoice_repo.get_all() # simplify for demo, should be by order_id
+        for inv in existing_invoices:
+            if inv.order_id == data.order_id:
+                raise InvoiceAlreadyGenerated()
 
-def generate_html_packing_slip(order: Order, customer: Customer) -> str:
-    html = f"""
-    <html>
-        <head><style>body {{ font-family: sans-serif; }} table {{ width: 100%; border-collapse: collapse; }} th, td {{ border: 1px solid #ddd; padding: 8px; }} </style></head>
-        <body>
-            <h1>Packing Slip (Order ID: {order.id})</h1>
-            <p>Customer: {customer.restaurant_name}</p>
-            <table>
-                <tr><th>Product</th><th>Quantity</th><th>Unit</th></tr>
-    """
-    for item in order.items:
-        html += f"<tr><td>{item.product.name}</td><td>{item.quantity}</td><td>{item.unit}</td></tr>"
-    html += """
-            </table>
-        </body>
-    </html>
-    """
-    return html
+        # Build invoice items and calculate totals
+        subtotal = 0
+        invoice_items = []
+        for item_data in data.items:
+            # Find the corresponding order item to get product name
+            order_item = next((oi for oi in order.items if oi.id == item_data.order_item_id), None)
+            if not order_item:
+                raise ValueError(f"Order item {item_data.order_item_id} not found in order {order.id}")
+            
+            total = item_data.quantity * item_data.unit_price
+            subtotal += total
+            
+            invoice_items.append(InvoiceItem(
+                product_name=order_item.product.name if order_item.product else "Unknown Product",
+                quantity=item_data.quantity,
+                unit=order_item.unit,
+                unit_price=item_data.unit_price,
+                gst=0, # Simplified for v1
+                total=total
+            ))
 
+        invoice_number = f"{settings.invoice_prefix}{settings.invoice_counter:04d}"
 
-def create_invoice_from_order(db: Session, order_id: int):
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-
-    if order.status in [
-        OrderStatus.INVOICE_GENERATED.value,
-        OrderStatus.COMPLETED.value,
-    ]:
-        raise HTTPException(
-            status_code=400, detail="Invoice already generated for this order"
+        invoice = Invoice(
+            invoice_number=invoice_number,
+            order_id=data.order_id,
+            customer_id=order.customer_id,
+            subtotal=subtotal,
+            gst=0,
+            grand_total=subtotal,
+            status="Generated"
         )
-
-    customer = order.customer
-    subtotal = Decimal("0.0")
-
-    invoice_items = []
-
-    for item in order.items:
-        product = item.product
-        # Using default_price if no specific price was set dynamically
-        price = product.default_price or Decimal("0.0")
-        qty = item.quantity
-        item_total = price * qty
-        subtotal += item_total
-
-        # Simple GST calculation logic, configurable later
-        gst = item_total * Decimal("0.05")  # 5% GST assume
-
-        inv_item = InvoiceItem(
-            product_name=product.name,
-            quantity=qty,
-            unit_price=price,
-            gst=gst,
-            total=item_total + gst,
-        )
-        invoice_items.append(inv_item)
-
-    total_gst = sum(item.gst for item in invoice_items)
-    grand_total = subtotal + total_gst
-
-    invoice_number = f"INV-{datetime.now().strftime('%Y%m%d%H%M%S')}-{order.id}"
-
-    invoice = Invoice(
-        invoice_number=invoice_number,
-        order_id=order.id,
-        customer_id=customer.id,
-        subtotal=subtotal,
-        gst=total_gst,
-        grand_total=grand_total,
-        status="Generated",
-    )
-
-    db.add(invoice)
-    db.commit()
-    db.refresh(invoice)
-
-    for inv_item in invoice_items:
-        inv_item.invoice_id = invoice.id
-        db.add(inv_item)
-
-    order.status = OrderStatus.INVOICE_GENERATED.value
-    db.add(order)
-    db.commit()
-    db.refresh(invoice)
-
-    # Generate PDFs
-    inv_html = generate_html_invoice(invoice, customer, invoice_items)
-    pack_html = generate_html_packing_slip(order, customer)
-
-    inv_path = os.path.join(INVOICE_DIR, f"{invoice_number}.pdf")
-    pack_path = os.path.join(PACKING_DIR, f"PACK-{invoice_number}.pdf")
-
-    HTML(string=inv_html).write_pdf(inv_path)
-    HTML(string=pack_html).write_pdf(pack_path)
-
-    return invoice
+        invoice.items = invoice_items
+        
+        try:
+            # Save all changes atomically
+            self.invoice_repo.db.add(invoice)
+            
+            # Update order status
+            order.status = "Invoice Generated"
+            
+            # Increment counter
+            settings.invoice_counter += 1
+            
+            self.invoice_repo.db.commit()
+            self.invoice_repo.db.refresh(invoice)
+            
+            AuditService.log_action(
+                db=self.invoice_repo.db,
+                user_id=user_id,
+                action="GENERATED_INVOICE",
+                entity_type="INVOICE",
+                entity_id=str(invoice.id),
+                details=f"Generated Invoice {invoice.invoice_number} for ₹{invoice.grand_total}"
+            )
+            
+            return invoice
+        except Exception as e:
+            self.invoice_repo.db.rollback()
+            raise e

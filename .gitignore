@@ -1,7 +1,14 @@
 backend/venv/
-backend/venv/
-backend/venv
+backend/.venv/
 venv/
+.venv/
 backend/test.sqlite
+test.sqlite
 .pytest_cache
 __pycache__
+.freshflow.pids
+node_modules/
+.next/
+.coverage
+.ruff_cache/
+

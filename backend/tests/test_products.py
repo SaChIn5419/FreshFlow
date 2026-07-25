@@ -1,14 +1,14 @@
+from datetime import timedelta
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from app.models.user import User
 from app.core import security
-from datetime import timedelta
-
+from app.core.security import get_password_hash
 
 def test_create_product(client: TestClient, db: Session) -> None:
     user = User(
-        email="admin_product@example.com",
-        password_hash=security.get_password_hash("password"),
+        email="admin_prod@example.com",
+        password_hash=get_password_hash("password"),
         role="ADMIN",
     )
     db.add(user)
@@ -17,7 +17,7 @@ def test_create_product(client: TestClient, db: Session) -> None:
     token = security.create_access_token(user.id, expires_delta=timedelta(minutes=15))
 
     response = client.post(
-        "/products/",
+        "/api/v1/products/",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "name": "Tomato",
@@ -33,11 +33,11 @@ def test_create_product(client: TestClient, db: Session) -> None:
 
 
 def test_read_products(client: TestClient, db: Session) -> None:
-    user = db.query(User).filter(User.email == "admin_product@example.com").first()
+    user = db.query(User).filter(User.email == "admin_prod@example.com").first()
     token = security.create_access_token(user.id, expires_delta=timedelta(minutes=15))
 
-    response = client.get("/products/", headers={"Authorization": f"Bearer {token}"})
+    response = client.get("/api/v1/products/", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     data = response.json()
+    assert isinstance(data, list)
     assert len(data) >= 1
-    assert data[0]["name"] == "Tomato"

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invoice {{ invoice.invoice_number }}</title>
+  <link rel="stylesheet" href="invoice.css" />
+  <style>
+    /* Embedded for WeasyPrint compatibility */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      font-size: 12px;
+      color: #1a1a1a;
+      background: #fff;
+    }
+
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      padding: 14mm 14mm 14mm 14mm;
+      background: #fff;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 12px;
+      border-bottom: 2.5px solid #1a1a1a;
+      margin-bottom: 16px;
+    }
+
+    .company-block .company-name {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #1a1a1a;
+    }
+
+    .company-block .tagline {
+      font-size: 10px;
+      color: #666;
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .company-block .company-address {
+      font-size: 10.5px;
+      color: #444;
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+
+    .invoice-meta {
+      text-align: right;
+    }
+
+    .invoice-meta .invoice-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #999;
+    }
+
+    .invoice-meta .invoice-number {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-top: 2px;
+    }
+
+    .invoice-meta .invoice-date {
+      font-size: 11px;
+      color: #555;
+      margin-top: 6px;
+    }
+
+    /* ── BILL TO ── */
+    .bill-section {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding: 12px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .bill-to .section-label {
+      font-size: 8.5px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: #999;
+      margin-bottom: 5px;
+    }
+
+    .bill-to .customer-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    .bill-to .customer-address {
+      font-size: 10.5px;
+      color: #555;
+      margin-top: 3px;
+      line-height: 1.5;
+    }
+
+    /* ── ITEMS TABLE ── */
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 0;
+    }
+
+    .items-table thead tr {
+      background: #1a1a1a;
+      color: #fff;
+    }
+
+    .items-table thead th {
+      padding: 8px 10px;
+      font-size: 9.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      text-align: left;
+    }
+
+    .items-table thead th:last-child,
+    .items-table thead th:nth-child(3),
+    .items-table thead th:nth-child(4) {
+      text-align: right;
+    }
+
+    .items-table tbody tr {
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .items-table tbody tr:last-child {
+      border-bottom: 1.5px solid #ddd;
+    }
+
+    .items-table tbody td {
+      padding: 8px 10px;
+      font-size: 11.5px;
+      vertical-align: middle;
+    }
+
+    .items-table tbody td.num {
+      text-align: right;
+    }
+
+    /* ── TOTALS ── */
+    .totals {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 0;
+    }
+
+    .totals-box {
+      width: 240px;
+    }
+
+    .totals-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 10px;
+      font-size: 11.5px;
+      color: #444;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .totals-row.grand {
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 2px solid #1a1a1a;
+      color: #1a1a1a;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 9px 10px;
+    }
+
+    .totals-row:first-child {
+      border-top: 1px solid #1a1a1a;
+    }
+
+    /* ── FOOTER ── */
+    .footer {
+      margin-top: 32px;
+      padding-top: 14px;
+      border-top: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .thank-you {
+      font-size: 11px;
+      color: #888;
+      font-style: italic;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-radius: 20px;
+      background: #f0f0f0;
+      color: #666;
+    }
+
+    .status-badge.paid { background: #d1fae5; color: #065f46; }
+    .status-badge.pending { background: #fef3c7; color: #92400e; }
+
+    @media print {
+      body { margin: 0; }
+      .page { padding: 10mm; }
+      .status-badge-container { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- HEADER -->
+    <div class="header">
+      <div class="company-block">
+        <div class="company-name">{{ settings.company_name }}</div>
+        <div class="tagline">Wholesale Fresh Vegetables</div>
+        {% if settings.gstin %}
+        <div class="company-address"><strong>GSTIN:</strong> {{ settings.gstin }}</div>
+        {% endif %}
+        {% if settings.address %}
+        <div class="company-address">{{ settings.address }}</div>
+        {% endif %}
+        {% if settings.phone %}
+        <div class="company-address"><strong>Phone:</strong> {{ settings.phone }}</div>
+        {% endif %}
+        {% if settings.email %}
+        <div class="company-address"><strong>Email:</strong> {{ settings.email }}</div>
+        {% endif %}
+      </div>
+      <div class="invoice-meta">
+        <div class="invoice-label">Tax Invoice</div>
+        <table style="text-align: right; margin-left: auto; font-size: 11px; color: #555; margin-top: 8px;">
+          <tr><td style="padding-right: 8px; padding-bottom: 2px;">Invoice No:</td><td style="font-weight:700; color:#1a1a1a; padding-bottom: 2px;">{{ invoice.invoice_number }}</td></tr>
+          <tr><td style="padding-right: 8px; padding-bottom: 2px;">Invoice Date:</td><td style="padding-bottom: 2px;">{{ invoice.created_at.strftime('%d %b %Y') }}</td></tr>
+          <tr><td style="padding-right: 8px; padding-bottom: 2px;">Order No:</td><td style="padding-bottom: 2px;">#{{ invoice.order_id | string | truncate(8, True, '') }}</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- BILL TO -->
+    <div class="bill-section">
+      <div class="bill-to">
+        <div class="section-label">Bill To</div>
+        <div class="customer-name">{{ customer.restaurant_name }}</div>
+        {% if customer.contact_person %}
+        <div class="customer-address">{{ customer.contact_person }}</div>
+        {% endif %}
+        {% if customer.phone %}
+        <div class="customer-address">Phone: {{ customer.phone }}</div>
+        {% endif %}
+        {% if customer.address %}
+        <div class="customer-address">{{ customer.address }}</div>
+        {% endif %}
+        {% if customer.gstin %}
+        <div class="customer-address">GSTIN: {{ customer.gstin }}</div>
+        {% endif %}
+      </div>
+      <div class="bill-to status-badge-container" style="text-align:right;">
+        <div class="section-label">Status</div>
+        <div>
+          <span class="status-badge {{ invoice.status | lower }}">{{ invoice.status }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ITEMS -->
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Product</th>
+          <th style="text-align:right;">Qty</th>
+          <th style="text-align:right;">Unit</th>
+          <th style="text-align:right;">Rate ({{ '₹' if settings.currency == 'INR' else settings.currency }})</th>
+          <th style="text-align:right;">Amount ({{ '₹' if settings.currency == 'INR' else settings.currency }})</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in invoice.items %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ item.product_name }}</td>
+          <td class="num">{{ item.quantity }}</td>
+          <td class="num">{{ item.unit if item.unit else '—' }}</td>
+          <td class="num">{{ "%.2f" | format(item.unit_price | float) }}</td>
+          <td class="num">{{ "%.2f" | format(item.total | float) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- TOTALS -->
+    <div class="totals">
+      <div class="totals-box">
+        <div class="totals-row">
+          <span>Subtotal</span>
+          <span>{{ '₹' if settings.currency == 'INR' else settings.currency }} {{ "%.2f" | format(invoice.subtotal | float) }}</span>
+        </div>
+        <div class="totals-row">
+          <span>GST</span>
+          <span>{{ '₹' if settings.currency == 'INR' else settings.currency }} {{ "%.2f" | format(invoice.gst | float) }}</span>
+        </div>
+        <div class="totals-row grand">
+          <span>Grand Total</span>
+          <span>{{ '₹' if settings.currency == 'INR' else settings.currency }} {{ "%.2f" | format(invoice.grand_total | float) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER & BANK DETAILS -->
+    <div class="footer">
+      <div>
+        {% if settings.bank_name %}
+        <div style="font-size: 10px; color: #444; margin-bottom: 3px;"><strong>Bank Details</strong></div>
+        <div style="font-size: 9.5px; color: #555;">Bank: {{ settings.bank_name }}</div>
+        {% endif %}
+        {% if settings.account_number %}
+        <div style="font-size: 9.5px; color: #555;">A/C: {{ settings.account_number }}</div>
+        {% endif %}
+        {% if settings.ifsc_code %}
+        <div style="font-size: 9.5px; color: #555;">IFSC: {{ settings.ifsc_code }}</div>
+        {% endif %}
+        {% if settings.upi_id %}
+        <div style="font-size: 9.5px; color: #555;">UPI: {{ settings.upi_id }}</div>
+        {% endif %}
+        <div class="thank-you" style="margin-top: 8px; margin-bottom: 8px;">Thank you for your business.</div>
+        <div style="font-size: 10px; color: #555;">For any billing queries, contact us at:</div>
+        {% if settings.phone %}<div style="font-size: 10px; color: #555;">Phone: {{ settings.phone }}</div>{% endif %}
+        {% if settings.email %}<div style="font-size: 10px; color: #555;">Email: {{ settings.email }}</div>{% endif %}
+      </div>
+      <div style="font-size:10.5px; color:#1a1a1a; text-align:right; padding-top: 40px; padding-bottom: 10px;">
+        ______________________<br>
+        <span style="display:inline-block; margin-top:4px; font-size:10px; color:#555;">Authorized Signature</span>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

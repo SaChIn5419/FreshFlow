@@ -4,6 +4,14 @@ from .customer import Customer
 from .product import Product
 from .order import Order, OrderItem, OrderFile
 from .invoice import Invoice, InvoiceItem
+from .settings import Settings
+from .customer_product import CustomerProduct
+from .customer_product_template import CustomerProductTemplate
+from .payment import Payment
+from .supplier import Supplier, ProductSupplier
+from .purchase_order import PurchaseOrder, PurchaseOrderItem
+from .packing_list import PackingList, PackingListItem
+from .supplier_payment import SupplierPayment
 
 __all__ = [
     "Base",
@@ -15,4 +23,15 @@ __all__ = [
     "OrderFile",
     "Invoice",
     "InvoiceItem",
+    "Settings",
+    "CustomerProduct",
+    "CustomerProductTemplate",
+    "Payment",
+    "Supplier",
+    "ProductSupplier",
+    "PurchaseOrder",
+    "PurchaseOrderItem",
+    "PackingList",
+    "PackingListItem",
+    "SupplierPayment",
 ]
