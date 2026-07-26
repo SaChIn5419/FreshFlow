@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { orderService, ParsedItem } from "@/app/services/orders";
 import { customerService } from "@/app/services/customers";
+import { productService } from "@/app/services/products";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +27,11 @@ export default function OrderUploadPage() {
   const { data: customers, isLoading: isLoadingCustomers } = useQuery({
     queryKey: ["customers"],
     queryFn: customerService.getCustomers,
+  });
+
+  const { data: allProducts } = useQuery({
+    queryKey: ["products"],
+    queryFn: productService.getProducts,
   });
 
   const parsePdf = useMutation({
@@ -82,12 +88,23 @@ export default function OrderUploadPage() {
   const handleOverrideMatch = (index: number, matchId: string) => {
     const newItems = [...parsedItems];
     const item = newItems[index];
-    const selectedMatch = item.top_matches.find(m => m.product_id === matchId);
-    if (selectedMatch) {
-      item.matched_product_id = selectedMatch.product_id;
-      item.matched_product_name = selectedMatch.product_name;
-      item.unit = selectedMatch.unit;
-      item.confidence = 100; // Manually verified
+    
+    // Check in top_matches first
+    const selectedTop = item.top_matches.find(m => m.product_id === matchId);
+    if (selectedTop) {
+      item.matched_product_id = selectedTop.product_id;
+      item.matched_product_name = selectedTop.product_name;
+      item.unit = selectedTop.unit;
+      item.confidence = 100;
+    } else {
+      // Check in catalog
+      const catalogProd = allProducts?.find(p => p.id === matchId);
+      if (catalogProd) {
+        item.matched_product_id = catalogProd.id;
+        item.matched_product_name = catalogProd.name;
+        item.unit = catalogProd.unit;
+        item.confidence = 100;
+      }
     }
     setParsedItems(newItems);
   };
@@ -253,24 +270,32 @@ export default function OrderUploadPage() {
                     </TableCell>
                     <TableCell>
                       {item.confidence > 70 ? (
-                        <span>{item.matched_product_name}</span>
+                        <span className="font-bold text-gray-800">{item.matched_product_name}</span>
                       ) : (
                         <Select 
                           value={item.matched_product_id || ""} 
                           onValueChange={(val) => handleOverrideMatch(idx, val || "")}
                         >
                           <SelectTrigger className="h-8 border-amber-300">
-                            <SelectValue placeholder="Select match..." />
+                            <SelectValue placeholder={item.matched_product_name || "Select match..."} />
                           </SelectTrigger>
-                          <SelectContent>
-                            {item.top_matches.map(m => (
-                              <SelectItem key={m.product_id} value={m.product_id}>
-                                {m.product_name}
+                          <SelectContent className="max-h-60 overflow-y-auto">
+                            {item.top_matches.length > 0 && (
+                              <>
+                                <div className="px-2 py-1 text-[10px] font-bold uppercase text-gray-400">Suggested Matches</div>
+                                {item.top_matches.map(m => (
+                                  <SelectItem key={`top-${m.product_id}`} value={m.product_id}>
+                                    🎯 {m.product_name}
+                                  </SelectItem>
+                                ))}
+                                <div className="px-2 py-1 text-[10px] font-bold uppercase text-gray-400 border-t mt-1 pt-1">All Produce Catalog</div>
+                              </>
+                            )}
+                            {allProducts?.map(p => (
+                              <SelectItem key={`cat-${p.id}`} value={p.id}>
+                                {p.name} ({p.unit})
                               </SelectItem>
                             ))}
-                            {item.top_matches.length === 0 && (
-                              <SelectItem value="none" disabled>No matches found</SelectItem>
-                            )}
                           </SelectContent>
                         </Select>
                       )}
