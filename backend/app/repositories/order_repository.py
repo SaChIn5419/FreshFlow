@@ -13,6 +13,12 @@ class OrderRepository:
             selectinload(Order.items).joinedload(OrderItem.product)
         ).filter(Order.id == id).first()
 
+    def get_by_request_id(self, request_id: str) -> Optional[Order]:
+        return self.db.query(Order).options(
+            joinedload(Order.customer),
+            selectinload(Order.items).joinedload(OrderItem.product)
+        ).filter(Order.request_id == request_id).first()
+
     def get_all(self) -> List[Order]:
         return self.db.query(Order).options(
             joinedload(Order.customer),

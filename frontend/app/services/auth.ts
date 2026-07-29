@@ -1,8 +1,9 @@
-import { getApiUrl } from '@/app/lib/axios';
+import { apiClient } from '@/app/lib/axios';
 
 export interface LoginResponse {
   access_token: string;
   token_type: string;
+  refresh_token?: string;
 }
 
 export interface UserResponse {
@@ -14,42 +15,28 @@ export interface UserResponse {
 
 export const authService = {
   login: async (email: string, password: string): Promise<LoginResponse> => {
-    const baseUrl = getApiUrl();
-    const response = await fetch(`${baseUrl}/auth/login`, {
-      method: 'POST',
+    const params = new URLSearchParams();
+    params.append('username', email);
+    params.append('password', password);
+
+    const response = await apiClient.post<LoginResponse>('/auth/login', params, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`,
     });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const detail = errorData?.detail;
-      if (typeof detail === 'string') {
-        throw new Error(detail);
-      }
-      throw new Error('Invalid email or password');
-    }
-
-    return response.json();
+    return response.data;
   },
 
   getMe: async (): Promise<UserResponse> => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    const baseUrl = getApiUrl();
-    const response = await fetch(`${baseUrl}/auth/me`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      },
-    });
+    const response = await apiClient.get<UserResponse>('/auth/me');
+    return response.data;
+  },
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch user profile');
+  logout: async (): Promise<void> => {
+    try {
+      await apiClient.post('/auth/logout');
+    } catch {
+      // Ignore errors on logout
     }
-
-    return response.json();
   },
 };

@@ -33,6 +33,7 @@ class Order(Base):
     __tablename__ = "orders"
 
     customer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=False, index=True)
+    request_id: Mapped[Optional[str]] = mapped_column(String, unique=True, index=True, nullable=True)
     status: Mapped[str] = mapped_column(String, default=OrderStatus.SUBMITTED.value)
     payment_status: Mapped[str] = mapped_column(String, default=PaymentStatus.PENDING.value)
     remarks: Mapped[Optional[str]] = mapped_column(String, nullable=True)

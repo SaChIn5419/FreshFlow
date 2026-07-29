@@ -12,6 +12,7 @@ from .supplier import Supplier, ProductSupplier
 from .purchase_order import PurchaseOrder, PurchaseOrderItem
 from .packing_list import PackingList, PackingListItem
 from .supplier_payment import SupplierPayment
+from .refresh_token import RefreshToken
 
 __all__ = [
     "Base",
@@ -34,4 +35,5 @@ __all__ = [
     "PackingList",
     "PackingListItem",
     "SupplierPayment",
+    "RefreshToken",
 ]

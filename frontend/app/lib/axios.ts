@@ -20,24 +20,22 @@ export const getApiUrl = () => {
 
 export const apiClient = axios.create({
   baseURL: getApiUrl(),
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
+    'X-Requested-With': 'FreshFlow',
   },
 });
 
-// Request Interceptor: Attach token if it exists
+// Request Interceptor: Attach CSRF header & set baseURL
 apiClient.interceptors.request.use(
   (config) => {
     config.baseURL = getApiUrl();
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('access_token');
-      if (token) {
-        if (typeof config.headers.set === 'function') {
-          config.headers.set('Authorization', `Bearer ${token}`);
-        } else {
-          (config.headers as any)['Authorization'] = `Bearer ${token}`;
-        }
-      }
+    config.withCredentials = true;
+    if (typeof config.headers.set === 'function') {
+      config.headers.set('X-Requested-With', 'FreshFlow');
+    } else {
+      (config.headers as any)['X-Requested-With'] = 'FreshFlow';
     }
     return config;
   },
@@ -46,21 +44,30 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response Interceptor: Handle 401s
+// Response Interceptor: Automatic Refresh Token Rotation on 401
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
-    // If the error is 401 and we haven't retried yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
+
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes('/auth/refresh') &&
+      !originalRequest.url?.includes('/auth/login')
+    ) {
       originalRequest._retry = true;
-      
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-        toast.error("Your session has expired. Please log in again.");
+      try {
+        await apiClient.post('/auth/refresh');
+        return apiClient(originalRequest);
+      } catch (refreshErr) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+          toast.error("Your session has expired. Please log in again.");
+        }
+        return Promise.reject(refreshErr);
       }
     } else if (error.response) {
       const status = error.response.status;
@@ -70,13 +77,15 @@ apiClient.interceptors.response.use(
         toast.error("The requested resource no longer exists.");
       } else if (status === 422) {
         toast.error("Please check your inputs and try again.");
+      } else if (status === 503) {
+        toast.error("Database service is temporarily unavailable. Please try again shortly.");
       } else if (status >= 500) {
         toast.error("FreshFlow server encountered an error. We are looking into it.");
       }
     } else if (error.request) {
-      toast.error("Cannot connect to FreshFlow server. Please check your internet connection.");
+      toast.error("Server unavailable, please try again shortly.");
     }
-    
+
     return Promise.reject(error);
   }
 );

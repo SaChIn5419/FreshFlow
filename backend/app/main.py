@@ -12,6 +12,13 @@ import os
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from app.core.config import settings
+
+limiter = Limiter(key_func=get_remote_address)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Ensure all tables exist in database on startup
@@ -30,29 +37,45 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title=PROJECT_NAME, version=VERSION, lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
-origins = [
-    "http://localhost:3000",
-    "http://localhost:8000",
-    "https://fresh-flow-mu.vercel.app",
-    frontend_url
-]
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+allowed_origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
     allow_headers=["*"],
 )
+
+from sqlalchemy.exc import OperationalError, DatabaseError, DBAPIError, DisconnectionError
 
 @app.exception_handler(BaseAppException)
 async def app_exception_handler(request: Request, exc: BaseAppException):
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.message, "error_id": exc.error_id},
+    )
+
+@app.exception_handler(OperationalError)
+@app.exception_handler(DatabaseError)
+@app.exception_handler(DBAPIError)
+@app.exception_handler(DisconnectionError)
+async def db_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "Database service is temporarily unavailable. Please try again shortly."},
     )
 
 app.include_router(api_router, prefix=API_V1_STR)

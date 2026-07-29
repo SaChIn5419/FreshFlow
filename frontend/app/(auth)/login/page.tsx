@@ -19,27 +19,24 @@ export default function LoginPage() {
   const router = useRouter();
   const login = useAuth((state) => state.login);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     const cleanEmail = email.trim();
     const cleanPassword = password.trim();
     if (!cleanEmail || !cleanPassword) return;
 
     setLoading(true);
     try {
-      console.log("Submitting login for:", cleanEmail);
-      const { access_token } = await authService.login(cleanEmail, cleanPassword);
-      console.log("Received access token successfully");
-      
-      localStorage.setItem("access_token", access_token);
-      
+      await authService.login(cleanEmail, cleanPassword);
       const user = await authService.getMe();
-      console.log("User profile received:", user);
 
-      login(user, access_token);
-      
+      login(user);
+
       toast.success("Welcome back");
-      
+
       if (user.role === "ADMIN") {
         router.push("/dashboard");
       } else {
@@ -67,7 +64,7 @@ export default function LoginPage() {
             Enter your credentials to sign in
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} action="javascript:void(0);">
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -94,7 +91,12 @@ export default function LoginPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button className="w-full bg-green-700 hover:bg-green-800" type="submit" disabled={loading}>
+            <Button 
+              className="w-full bg-green-700 hover:bg-green-800" 
+              type="button"
+              onClick={handleSubmit}
+              disabled={loading}
+            >
               {loading ? "Signing in..." : "Sign in"}
             </Button>
           </CardFooter>

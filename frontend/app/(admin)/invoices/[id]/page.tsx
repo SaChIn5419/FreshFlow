@@ -7,20 +7,15 @@ import { invoiceService } from "@/app/services/invoices";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download, Printer, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useAuth } from "@/app/hooks/useAuth";
 
 export default function InvoicePreviewPage() {
   const { id } = useParams() as { id: string };
-  const { token } = useAuth();
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const { data: invoice, isLoading } = useQuery({
     queryKey: ["invoice", id],
     queryFn: () => invoiceService.getInvoice(id),
   });
-
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
-  const previewUrl = `${backendUrl}/invoices/${id}/preview?token=${token}`; // Alternatively inject via headers in a next.js route handler, but appending token is a simple workaround for iframe if supported by backend, or we can fetch HTML and inject into iframe srcdoc.
 
   // Let's fetch the HTML via our authenticated axios client instead of iframe src,
   // then inject it into the iframe using srcdoc so we don't leak the token in URL.

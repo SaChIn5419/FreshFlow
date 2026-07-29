@@ -26,6 +26,7 @@ class OrderItem(OrderItemBase):
 
 class OrderBase(BaseModel):
     customer_id: uuid.UUID
+    request_id: Optional[str] = None
     remarks: Optional[str] = None
     status: str = OrderStatus.SUBMITTED.value
     payment_status: str = PaymentStatus.PENDING.value

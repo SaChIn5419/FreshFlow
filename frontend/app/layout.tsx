@@ -5,6 +5,8 @@ import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/sonner";
 import { OfflineBanner } from "@/components/OfflineBanner";
 
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -20,11 +22,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Providers>
-          <OfflineBanner />
-          {children}
-        </Providers>
-        <Toaster richColors position="top-right" />
+        <ErrorBoundary>
+          <Providers>
+            <OfflineBanner />
+            {children}
+          </Providers>
+          <Toaster richColors position="top-right" />
+        </ErrorBoundary>
       </body>
     </html>
   );

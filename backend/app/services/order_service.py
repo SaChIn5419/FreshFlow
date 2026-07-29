@@ -20,8 +20,14 @@ class OrderService:
         return self.order_repo.get_by_customer(customer_id)
 
     def create_order(self, data: OrderCreate, user_id: str) -> Order:
+        if data.request_id:
+            existing = self.order_repo.get_by_request_id(data.request_id)
+            if existing:
+                return existing
+
         order = Order(
             customer_id=data.customer_id,
+            request_id=data.request_id,
             remarks=data.remarks,
             status=data.status,
             payment_status=data.payment_status
@@ -49,7 +55,16 @@ class OrderService:
                 quantity=val["quantity"],
                 unit=val["unit"]
             ))
-        created_order = self.order_repo.create(order)
+        from sqlalchemy.exc import IntegrityError
+        try:
+            created_order = self.order_repo.create(order)
+        except IntegrityError:
+            if data.request_id:
+                existing = self.order_repo.get_by_request_id(data.request_id)
+                if existing:
+                    return existing
+            raise
+
         AuditService.log_action(
             db=self.order_repo.db,
             user_id=user_id,
