@@ -276,26 +276,36 @@ export default function OrderUploadPage() {
                           value={item.matched_product_id || ""} 
                           onValueChange={(val) => handleOverrideMatch(idx, val || "")}
                         >
-                          <SelectTrigger className="h-8 border-amber-300">
-                            <SelectValue placeholder={item.matched_product_name || "Select match..."} />
+                          <SelectTrigger className="h-9 border-amber-300 rounded-xl bg-white font-semibold text-gray-800">
+                            <SelectValue placeholder={item.matched_product_name || "Select matching produce..."}>
+                              {item.matched_product_name ? item.matched_product_name : undefined}
+                            </SelectValue>
                           </SelectTrigger>
-                          <SelectContent className="max-h-60 overflow-y-auto">
+                          <SelectContent className="max-h-60 overflow-y-auto bg-white rounded-xl shadow-lg border border-gray-200">
                             {item.top_matches.length > 0 && (
-                              <>
-                                <div className="px-2 py-1 text-[10px] font-bold uppercase text-gray-400">Suggested Matches</div>
-                                {item.top_matches.map(m => (
-                                  <SelectItem key={`top-${m.product_id}`} value={m.product_id}>
-                                    🎯 {m.product_name}
-                                  </SelectItem>
-                                ))}
-                                <div className="px-2 py-1 text-[10px] font-bold uppercase text-gray-400 border-t mt-1 pt-1">All Produce Catalog</div>
-                              </>
+                              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-green-800 bg-green-50">
+                                Suggested AI Matches
+                              </div>
                             )}
-                            {allProducts?.map(p => (
-                              <SelectItem key={`cat-${p.id}`} value={p.id}>
-                                {p.name} ({p.unit})
+                            {item.top_matches.map(m => (
+                              <SelectItem key={m.product_id} value={m.product_id} className="font-semibold text-gray-800">
+                                🎯 {m.product_name} ({m.unit})
                               </SelectItem>
                             ))}
+                            {allProducts && allProducts.length > 0 && (
+                              <>
+                                <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-50 border-t border-gray-100">
+                                  All Farm Produce Catalog
+                                </div>
+                                {allProducts
+                                  .filter(p => !item.top_matches.some(tm => tm.product_id === p.id))
+                                  .map(p => (
+                                    <SelectItem key={p.id} value={p.id} className="text-gray-700">
+                                      {p.name} ({p.unit})
+                                    </SelectItem>
+                                  ))}
+                              </>
+                            )}
                           </SelectContent>
                         </Select>
                       )}

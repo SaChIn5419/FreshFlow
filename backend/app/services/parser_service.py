@@ -20,7 +20,18 @@ class ParserService:
 
     def _normalize_string(self, text: str) -> str:
         text = text.lower()
-        text = text.replace("babycorn", "baby corn").replace("sweetcorn", "sweet corn")
+        # Normalize produce compound words, spacing, and common variations
+        text = re.sub(r"\bwater\s*melon\b", "watermelon", text)
+        text = re.sub(r"\bmusk\s*melon\b", "muskmelon", text)
+        text = re.sub(r"\bbabycorn\b", "baby corn", text)
+        text = re.sub(r"\bsweetcorn\b", "sweet corn", text)
+        text = re.sub(r"\bspringonion\b", "spring onion", text)
+        text = re.sub(r"\bbeet\s*root\b", "beetroot", text)
+        text = re.sub(r"\bguard\b", "gourd", text)
+        text = re.sub(r"\bavacado\b", "avocado", text)
+        text = re.sub(r"\bchilly\b", "chilli", text)
+        text = re.sub(r"\bchili\b", "chilli", text)
+        text = re.sub(r"\bladi(?:es|es'|y's|y)?\s*finger\b", "okra", text)
         return text
 
     def _score_match(self, query: str, target: str):
@@ -34,6 +45,11 @@ class ParserService:
 
         set_score = fuzz.token_set_ratio(q_stem, t_stem)
         sort_score = fuzz.token_sort_ratio(q_stem, t_stem)
+
+        # Boost score if normalized query matches target token (e.g. "watermelon" in "watermelon kiran")
+        if q_stem in t_stem or t_stem in q_stem:
+            set_score = max(set_score, 95.0)
+
         total_score = set_score * 100 + sort_score
         
         return total_score, set_score
