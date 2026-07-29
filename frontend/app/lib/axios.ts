@@ -62,7 +62,7 @@ apiClient.interceptors.response.use(
         await apiClient.post('/auth/refresh');
         return apiClient(originalRequest);
       } catch (refreshErr) {
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
           localStorage.removeItem('user');
           window.location.href = '/login';
           toast.error("Your session has expired. Please log in again.");

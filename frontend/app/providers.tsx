@@ -20,7 +20,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    initAuth();
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      initAuth();
+    }
     setIsInitialized(true);
   }, [initAuth]);
 
