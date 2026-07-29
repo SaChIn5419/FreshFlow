@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import List
 from app.repositories import InvoiceRepository, OrderRepository, CustomerRepository, SettingsRepository
 from app.models.invoice import Invoice, InvoiceItem
@@ -70,6 +71,8 @@ class InvoiceService:
 
         invoice_number = f"{settings.invoice_prefix}{settings.invoice_counter:04d}"
 
+        invoice_created_at = data.created_at if data.created_at else datetime.now()
+
         invoice = Invoice(
             invoice_number=invoice_number,
             order_id=data.order_id,
@@ -77,7 +80,8 @@ class InvoiceService:
             subtotal=subtotal,
             gst=0,
             grand_total=subtotal,
-            status="Generated"
+            status="Generated",
+            created_at=invoice_created_at
         )
         invoice.items = invoice_items
         

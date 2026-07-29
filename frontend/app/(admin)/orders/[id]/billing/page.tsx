@@ -10,9 +10,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Calendar, Clock } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
+
+const getNowLocalISO = () => {
+  const d = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 export default function BillingPage() {
   const { id } = useParams() as { id: string };
@@ -29,10 +35,10 @@ export default function BillingPage() {
     enabled: !!order,
   });
 
-  // State to hold quantities and prices
-  // key: order_item.id
+  // State to hold quantities, prices, and editable invoice date/time
   const [itemsData, setItemsData] = useState<Record<string, { qty: number; price: string }>>({});
-  
+  const [invoiceDateTime, setInvoiceDateTime] = useState<string>(getNowLocalISO());
+
   useEffect(() => {
     if (order && Object.keys(itemsData).length === 0) {
       const initialData: Record<string, { qty: number; price: string }> = {};
@@ -54,7 +60,7 @@ export default function BillingPage() {
   const generateInvoice = useMutation({
     mutationFn: invoiceService.generateInvoice,
     onSuccess: (invoice) => {
-      toast.success("Invoice created");
+      toast.success("Invoice created successfully!");
       router.push(`/invoices/${invoice.id}`);
     },
     onError: () => {
@@ -142,16 +148,19 @@ export default function BillingPage() {
   const onGenerate = () => {
     if (!order) return;
     
-    toast.info("Generating...");
+    toast.info("Generating invoice...");
     const invoiceItems: InvoiceItemCreate[] = order.items.map(item => ({
       order_item_id: item.id,
       quantity: itemsData[item.id].qty,
       unit_price: parseFloat(itemsData[item.id].price)
     }));
 
+    const formattedCreatedAt = invoiceDateTime ? new Date(invoiceDateTime).toISOString() : undefined;
+
     generateInvoice.mutate({
       order_id: order.id,
-      items: invoiceItems
+      items: invoiceItems,
+      created_at: formattedCreatedAt
     });
   };
 
@@ -166,21 +175,41 @@ export default function BillingPage() {
   return (
     <div className="max-w-6xl mx-auto pb-32">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-            <Link href="/orders" className="hover:text-gray-900 flex items-center">
+            <Link href="/orders" className="hover:text-gray-900 flex items-center font-medium">
               <ArrowLeft className="w-4 h-4 mr-1" />
-              Back to Orders
+              Back to Orders Queue
             </Link>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">{order.customer.restaurant_name} — Billing</h1>
-          <p className="text-sm text-gray-500">Order #{order.id.slice(0, 8)} · {order.items.length} items · {format(new Date(order.created_at), "dd MMM yyyy")}</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">{order.customer.restaurant_name} — Invoice Generation</h1>
+          <p className="text-xs text-gray-500 mt-1 font-medium">
+            Order #{order.id.slice(0, 8)} · {order.items.length} items · Created {format(new Date(order.created_at), "dd MMM yyyy")}
+          </p>
         </div>
         
-        <div className="flex gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Editable Invoice Date & Time Control */}
+          <div className="flex items-center gap-2 bg-white border border-gray-200 px-3 py-1.5 rounded-xl shadow-2xs">
+            <Calendar className="w-4 h-4 text-green-700" />
+            <div className="flex flex-col">
+              <label htmlFor="invoice-date-picker" className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                Invoice Date & Time
+              </label>
+              <input
+                id="invoice-date-picker"
+                type="datetime-local"
+                value={invoiceDateTime}
+                onChange={e => setInvoiceDateTime(e.target.value)}
+                className="text-xs font-bold text-gray-800 bg-transparent border-0 focus:ring-0 p-0 cursor-pointer"
+              />
+            </div>
+          </div>
+
           <Button 
             variant="outline"
+            className="rounded-xl font-bold"
             onClick={() => {
               toast.info("Downloading packing slip...");
               orderService.downloadPackingSlip(order.id).catch(() => {
@@ -193,9 +222,9 @@ export default function BillingPage() {
           <Button 
             onClick={onGenerate}
             disabled={!allPriced || generateInvoice.isPending}
-            className={allPriced ? "bg-green-700 hover:bg-green-800" : "bg-gray-300 text-gray-500"}
+            className={`rounded-xl font-extrabold px-5 ${allPriced ? "bg-green-700 hover:bg-green-800 text-white shadow-md shadow-green-700/20" : "bg-gray-300 text-gray-500"}`}
           >
-            Generate Invoice ▶
+            {generateInvoice.isPending ? "Generating..." : "Generate Invoice ▶"}
           </Button>
         </div>
       </div>

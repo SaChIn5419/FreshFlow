@@ -37,6 +37,7 @@ class InvoiceBase(BaseModel):
 class InvoiceCreate(BaseModel):
     order_id: uuid.UUID
     items: List[InvoiceItemCreate]
+    created_at: Optional[datetime] = None
     model_config = ConfigDict(
         json_schema_extra={
             "example": {

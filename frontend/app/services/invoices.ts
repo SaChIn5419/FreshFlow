@@ -9,6 +9,7 @@ export interface InvoiceItemCreate {
 export interface InvoiceCreate {
   order_id: string;
   items: InvoiceItemCreate[];
+  created_at?: string;
 }
 
 export interface Invoice {
