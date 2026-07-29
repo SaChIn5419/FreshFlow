@@ -9,6 +9,7 @@ import { productService } from "@/app/services/products";
 import { supplierService } from "@/app/services/suppliers";
 import { purchaseOrderService } from "@/app/services/purchase_orders";
 import { packingService } from "@/app/services/packing";
+import { PageShell } from "@/app/components/layout/PageShell";
 import { format, isToday, parseISO, subDays } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -248,39 +249,30 @@ export default function DashboardPage() {
 
 
   return (
-    <div className="space-y-6">
-      {/* Top Welcome & Quick Actions Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-gray-200">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
-            FreshFlow Control Center
-            <Badge variant="outline" className="bg-green-50 text-green-800 border-green-200 font-semibold text-xs">
-              Live Operations
-            </Badge>
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Surfacing real-time credit recovery, vendor procurements, and inventory decisions.
-          </p>
-        </div>
-
+    <PageShell
+      title="Operations Control Center"
+      subtitle="Surfacing real-time credit recovery, vendor procurements, and inventory decisions."
+      actions={
         <div className="flex items-center gap-2">
           <Link href="/orders/upload">
-            <Button className="bg-green-700 hover:bg-green-800 text-white font-semibold text-sm shadow-xs">
+            <Button className="bg-green-700 hover:bg-green-800 text-white font-semibold text-sm shadow-xs rounded-xl">
               + Upload Order
             </Button>
           </Link>
           <Link href="/purchase-orders">
-            <Button variant="outline" className="border-gray-300 text-gray-700 font-medium text-sm">
+            <Button variant="outline" className="border-gray-200 text-gray-700 font-medium text-sm rounded-xl">
               Supplier POs
             </Button>
           </Link>
           <Link href="/packing">
-            <Button variant="outline" className="border-gray-300 text-gray-700 font-medium text-sm">
+            <Button variant="outline" className="border-gray-200 text-gray-700 font-medium text-sm rounded-xl">
               Packing Desk
             </Button>
           </Link>
         </div>
-      </div>
+      }
+    >
+      <div className="space-y-6">
 
       {/* 🔴 ATTENTION REQUIRED: Highest Priority Action Banner */}
       <div className="bg-gradient-to-r from-red-900 via-red-800 to-amber-900 text-white p-4 rounded-xl shadow-md space-y-3">
@@ -662,7 +654,8 @@ export default function DashboardPage() {
             </Table>
           </CardContent>
         </Card>
+        </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

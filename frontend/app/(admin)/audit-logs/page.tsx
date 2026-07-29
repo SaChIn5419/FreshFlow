@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { auditService, AuditLog } from "@/app/services/audit";
+import { PageShell } from "@/app/components/layout/PageShell";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -12,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search } from "lucide-react";
+import { Search, Loader2, Activity, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -57,100 +58,104 @@ export default function AuditLogsPage() {
 
   const getActionColor = (action: string) => {
     const lower = action.toLowerCase();
-    if (lower.includes('create')) return 'bg-blue-100 text-blue-800 hover:bg-blue-100';
-    if (lower.includes('update')) return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100';
-    if (lower.includes('delete') || lower.includes('remove')) return 'bg-red-100 text-red-800 hover:bg-red-100';
-    return 'bg-gray-100 text-gray-800 hover:bg-gray-100';
+    if (lower.includes("create")) return "bg-blue-100 text-blue-800 border-blue-200";
+    if (lower.includes("update")) return "bg-amber-100 text-amber-800 border-amber-200";
+    if (lower.includes("delete") || lower.includes("remove")) return "bg-red-100 text-red-800 border-red-200";
+    return "bg-gray-100 text-gray-800 border-gray-200";
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Audit Logs</h1>
-          <p className="text-gray-500">Track system activities and data changes.</p>
+    <PageShell
+      title="System Audit Logs"
+      subtitle="Immutable audit trail tracking system security events, data mutations, and operational activities."
+      badgeText="Security & Compliance"
+    >
+      <div className="space-y-6">
+        {/* Search Bar */}
+        <div className="bg-white p-4 rounded-2xl border border-green-100/80 shadow-xs">
+          <div className="flex items-center space-x-2 bg-green-50/50 px-3 py-1.5 rounded-xl border border-green-200/60 max-w-md">
+            <Search className="w-4 h-4 text-green-700 flex-shrink-0" />
+            <Input
+              placeholder="Search by action, entity type, ID, or user..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 text-sm text-gray-900 placeholder:text-gray-400"
+            />
+          </div>
         </div>
-      </div>
 
-      <div className="flex items-center space-x-2 bg-white p-2 rounded-lg border border-gray-200 w-full max-w-md">
-        <Search className="w-5 h-5 text-gray-400 ml-2" />
-        <Input
-          placeholder="Search by action, entity type, ID, or user..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-2"
-        />
-      </div>
-
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date & Time</TableHead>
-              <TableHead>User ID</TableHead>
-              <TableHead>Action</TableHead>
-              <TableHead>Entity Type</TableHead>
-              <TableHead>Entity ID</TableHead>
-              <TableHead className="max-w-xs">Details</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
+        {/* Table Container */}
+        <div className="bg-white rounded-2xl border border-green-100 overflow-hidden shadow-xs">
+          <Table>
+            <TableHeader className="bg-gradient-to-r from-green-50/80 to-emerald-50/30">
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                  Loading audit logs...
-                </TableCell>
+                <TableHead className="font-bold text-gray-900">Timestamp</TableHead>
+                <TableHead className="font-bold text-gray-900">User ID</TableHead>
+                <TableHead className="font-bold text-gray-900">Action Performed</TableHead>
+                <TableHead className="font-bold text-gray-900">Entity Type</TableHead>
+                <TableHead className="font-bold text-gray-900">Entity ID</TableHead>
+                <TableHead className="max-w-xs font-bold text-gray-900">Details Payload</TableHead>
               </TableRow>
-            ) : filteredLogs.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                  No audit logs found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredLogs.map((log) => (
-                <TableRow key={log.id}>
-                  <TableCell className="whitespace-nowrap">
-                    {log.created_at ? (
-                      <div>
-                        <div className="font-medium text-gray-900">
-                          {format(new Date(log.created_at), 'MMM d, yyyy')}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {format(new Date(log.created_at), 'HH:mm:ss')}
-                        </div>
-                      </div>
-                    ) : (
-                      '-'
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-mono text-xs text-gray-600 truncate max-w-[120px]" title={log.user_id}>
-                      {log.user_id || "-"}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className={getActionColor(log.action)}>
-                      {log.action}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-medium text-gray-700">
-                    {log.entity_type}
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-mono text-xs text-gray-600 truncate max-w-[120px]" title={log.entity_id}>
-                      {log.entity_id}
-                    </div>
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate text-sm text-gray-500" title={formatDetails(log.details)}>
-                    {formatDetails(log.details)}
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12 text-gray-500">
+                    <Loader2 className="w-6 h-6 animate-spin text-green-700 mx-auto mb-2" />
+                    Loading audit logs...
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : filteredLogs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12 text-gray-500">
+                    No audit logs found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredLogs.map((log) => (
+                  <TableRow key={log.id} className="hover:bg-green-50/40 transition-colors">
+                    <TableCell className="whitespace-nowrap">
+                      {log.created_at ? (
+                        <div>
+                          <div className="font-bold text-gray-900">
+                            {format(new Date(log.created_at), "MMM d, yyyy")}
+                          </div>
+                          <div className="text-xs text-gray-500 font-mono">
+                            {format(new Date(log.created_at), "HH:mm:ss")}
+                          </div>
+                        </div>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-mono text-xs text-gray-600 truncate max-w-[120px]" title={log.user_id}>
+                        {log.user_id || "System"}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className={`font-bold border ${getActionColor(log.action)}`}>
+                        {log.action}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-bold text-gray-800">
+                      {log.entity_type}
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-mono text-xs text-green-800 font-bold truncate max-w-[120px]" title={log.entity_id}>
+                        {log.entity_id}
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-xs truncate text-xs font-mono text-gray-600 bg-gray-50/80 p-2 rounded-lg border border-gray-100" title={formatDetails(log.details)}>
+                      {formatDetails(log.details)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

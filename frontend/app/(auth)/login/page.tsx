@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Leaf } from "lucide-react";
+import { Leaf, Sprout, ShieldCheck } from "lucide-react";
+import { ProducePattern } from "@/app/components/ui/ProducePattern";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -35,7 +36,7 @@ export default function LoginPage() {
 
       login(user);
 
-      toast.success("Welcome back");
+      toast.success("Welcome back to FreshFlow Portal!");
 
       if (user.role === "ADMIN") {
         router.push("/dashboard");
@@ -51,23 +52,34 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-gray-50/50 px-4">
-      <Card className="w-full max-w-sm shadow-sm border-gray-200">
-        <CardHeader className="space-y-1 text-center pb-6">
-          <div className="flex justify-center mb-2">
-            <div className="bg-green-100 p-2 rounded-full text-green-700">
-              <Leaf className="w-6 h-6" />
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50/60 to-teal-50 px-4 py-8 overflow-hidden font-sans">
+      {/* Background Produce Vector Pattern */}
+      <ProducePattern className="absolute inset-0 w-full h-full opacity-10 pointer-events-none" />
+
+      <Card className="w-full max-w-md shadow-xl border-green-100/80 bg-white/95 backdrop-blur-md rounded-2xl overflow-hidden relative z-10">
+        <div className="h-2 bg-gradient-to-r from-green-600 via-emerald-500 to-teal-600"></div>
+        <CardHeader className="space-y-2 text-center pb-4 pt-6">
+          <div className="flex justify-center mb-1">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-600 to-emerald-700 flex items-center justify-center text-white shadow-md">
+              <Leaf className="w-7 h-7" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight">FreshFlow</CardTitle>
-          <CardDescription>
-            Enter your credentials to sign in
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200 mx-auto">
+            <Sprout className="w-3.5 h-3.5 text-green-600" />
+            Direct From Partner Farmers
+          </div>
+          <CardTitle className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900">
+            FreshFlow
+          </CardTitle>
+          <CardDescription className="text-xs text-gray-600">
+            B2B Wholesale Produce Procurement for Restaurants & Hotels
           </CardDescription>
         </CardHeader>
+
         <form onSubmit={handleSubmit} action="javascript:void(0);">
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 px-6 pt-2">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="font-semibold text-gray-800 text-xs uppercase tracking-wider">Email Address</Label>
               <Input 
                 id="email" 
                 type="email" 
@@ -76,10 +88,11 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
                 required 
+                className="rounded-xl border-gray-200 focus:border-green-600"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="font-semibold text-gray-800 text-xs uppercase tracking-wider">Password</Label>
               <Input 
                 id="password" 
                 type="password" 
@@ -87,18 +100,25 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
                 required 
+                className="rounded-xl border-gray-200 focus:border-green-600"
               />
             </div>
           </CardContent>
-          <CardFooter>
+
+          <CardFooter className="flex flex-col gap-4 px-6 pb-6 pt-2">
             <Button 
-              className="w-full bg-green-700 hover:bg-green-800" 
+              className="w-full bg-green-700 hover:bg-green-800 text-white font-extrabold rounded-xl py-2.5 shadow-md shadow-green-700/20" 
               type="button"
               onClick={handleSubmit}
               disabled={loading}
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "Signing in..." : "Sign In to Portal"}
             </Button>
+
+            <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-500 font-medium pt-1">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              Direct Farm Quality Guarantee & Mandi Pricing
+            </div>
           </CardFooter>
         </form>
       </Card>

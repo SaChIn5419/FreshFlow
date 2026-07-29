@@ -3,8 +3,10 @@
 import { useAuth } from "@/app/hooks/useAuth";
 import { AdminSidebar } from "@/app/components/layout/AdminSidebar";
 import { AdminNavbar } from "@/app/components/layout/AdminNavbar";
+import { useSidebarStore } from "@/app/stores/useSidebarStore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { cn } from "@/lib/utils";
 
 export default function AdminLayout({
   children,
@@ -13,6 +15,7 @@ export default function AdminLayout({
 }) {
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
+  const { isCollapsed } = useSidebarStore();
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -27,11 +30,16 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50/60 text-gray-900 flex flex-col font-sans">
       <AdminSidebar />
-      <div className="flex-1 flex flex-col ml-56">
+      <div
+        className={cn(
+          "flex-1 flex flex-col transition-all duration-300 ease-in-out",
+          isCollapsed ? "pl-0 lg:pl-20" : "pl-0 lg:pl-64"
+        )}
+      >
         <AdminNavbar />
-        <main className="flex-1 p-6 pt-22 mt-16">
+        <main className="flex-1 pt-20 p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto">
           {children}
         </main>
       </div>
