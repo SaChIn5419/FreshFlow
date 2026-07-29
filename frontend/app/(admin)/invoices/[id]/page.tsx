@@ -1,24 +1,24 @@
 "use client";
 
-import { useRef, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useRef } from "react";
+import { useParams } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoiceService } from "@/app/services/invoices";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, Printer, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, Printer, Loader2, CheckCircle2, AlertCircle, Wallet } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 export default function InvoicePreviewPage() {
   const { id } = useParams() as { id: string };
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const queryClient = useQueryClient();
 
   const { data: invoice, isLoading } = useQuery({
     queryKey: ["invoice", id],
     queryFn: () => invoiceService.getInvoice(id),
   });
 
-  // Let's fetch the HTML via our authenticated axios client instead of iframe src,
-  // then inject it into the iframe using srcdoc so we don't leak the token in URL.
   const { data: htmlContent, isLoading: isLoadingHtml } = useQuery({
     queryKey: ["invoice-html", id],
     queryFn: async () => {
@@ -26,6 +26,18 @@ export default function InvoicePreviewPage() {
       const res = await apiClient.get(`/invoices/${id}/preview`, { responseType: 'text' });
       return res.data;
     },
+  });
+
+  const togglePaymentMutation = useMutation({
+    mutationFn: (newStatus: string) => invoiceService.updatePaymentStatus(id, newStatus),
+    onSuccess: (updatedInvoice) => {
+      toast.success(`Invoice payment status updated to ${updatedInvoice.payment_status}!`);
+      queryClient.invalidateQueries({ queryKey: ["invoice", id] });
+      queryClient.invalidateQueries({ queryKey: ["invoice-html", id] });
+    },
+    onError: () => {
+      toast.error("Failed to update payment status");
+    }
   });
 
   const handlePrint = () => {
@@ -54,8 +66,10 @@ export default function InvoicePreviewPage() {
     );
   }
 
+  const isPaid = invoice.payment_status?.toLowerCase() === "paid";
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 pb-20">
       {/* Print stylesheet to hide UI outside iframe */}
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
@@ -76,30 +90,91 @@ export default function InvoicePreviewPage() {
         }
       `}} />
 
-      <div className="flex items-center justify-between no-print">
+      {/* Top Navigation & Quick Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
         <div>
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-            <Link href={`/orders/${invoice.order_id}/billing`} className="hover:text-gray-900 flex items-center">
+          <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+            <Link href={`/orders/${invoice.order_id}/billing`} className="hover:text-gray-900 flex items-center font-medium">
               <ArrowLeft className="w-4 h-4 mr-1" />
               Back to Billing
             </Link>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Invoice {invoice.invoice_number}</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">Invoice {invoice.invoice_number}</h1>
         </div>
         
         <div className="flex gap-3">
-          <Button variant="outline" onClick={handleDownload} className="flex items-center gap-2">
-            <Download className="w-4 h-4" />
+          <Button variant="outline" onClick={handleDownload} className="flex items-center gap-2 rounded-xl font-bold">
+            <Download className="w-4 h-4 text-gray-600" />
             Download PDF
           </Button>
-          <Button variant="outline" onClick={handlePrint} className="flex items-center gap-2">
-            <Printer className="w-4 h-4" />
-            Print
+          <Button variant="outline" onClick={handlePrint} className="flex items-center gap-2 rounded-xl font-bold">
+            <Printer className="w-4 h-4 text-gray-600" />
+            Print Invoice
           </Button>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden min-h-[800px] flex">
+      {/* Payment Status Action Control Bar */}
+      <div className={`no-print p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all shadow-2xs ${
+        isPaid 
+          ? "bg-green-50/80 border-green-200" 
+          : "bg-amber-50/80 border-amber-200"
+      }`}>
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+            isPaid ? "bg-green-700 text-white" : "bg-amber-600 text-white"
+          }`}>
+            {isPaid ? <CheckCircle2 className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Payment Status:</span>
+              <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full ${
+                isPaid ? "bg-green-200 text-green-900" : "bg-amber-200 text-amber-900"
+              }`}>
+                {isPaid ? "PAID" : "UNPAID (RECEIVABLE)"}
+              </span>
+            </div>
+            <p className="text-sm font-bold text-gray-900 mt-0.5">
+              {isPaid 
+                ? `Full payment of ₹${invoice.grand_total.toFixed(2)} received.` 
+                : `Amount Receivable: ₹${invoice.balance_due.toFixed(2)} (Linked to Accounts Receivable)`
+              }
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button
+            size="sm"
+            onClick={() => togglePaymentMutation.mutate(isPaid ? "Unpaid" : "Paid")}
+            disabled={togglePaymentMutation.isPending}
+            className={`w-full sm:w-auto rounded-xl font-extrabold text-xs shadow-2xs ${
+              isPaid 
+                ? "bg-gray-200 hover:bg-gray-300 text-gray-800" 
+                : "bg-green-700 hover:bg-green-800 text-white"
+            }`}
+          >
+            {togglePaymentMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-1" />
+            ) : isPaid ? (
+              "Mark as Unpaid"
+            ) : (
+              `✓ Mark as Paid (₹${invoice.balance_due.toFixed(2)})`
+            )}
+          </Button>
+
+          <Link href="/finance/receivables">
+            <Button size="sm" variant="outline" className="rounded-xl font-bold text-xs">
+              <Wallet className="w-3.5 h-3.5 mr-1" />
+              Receivables Hub
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Invoice HTML Document Preview Container */}
+      <div className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden min-h-[850px] flex">
         <iframe
           ref={iframeRef}
           title="Invoice Preview"

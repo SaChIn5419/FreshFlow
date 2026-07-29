@@ -111,3 +111,32 @@ class InvoiceService:
         except Exception as e:
             self.invoice_repo.db.rollback()
             raise e
+
+    def update_payment_status(self, id: uuid.UUID, payment_status: str, user_id: str) -> Invoice:
+        invoice = self.invoice_repo.get_by_id(id)
+        if not invoice:
+            raise InvoiceNotFound()
+        
+        status_clean = payment_status.strip()
+        if status_clean.upper() == "PAID":
+            invoice.paid_amount = invoice.grand_total
+            invoice.balance_due = Decimal("0.00")
+            invoice.payment_status = "Paid"
+        else:
+            invoice.paid_amount = Decimal("0.00")
+            invoice.balance_due = invoice.grand_total
+            invoice.payment_status = "Unpaid"
+
+        self.invoice_repo.db.commit()
+        self.invoice_repo.db.refresh(invoice)
+
+        AuditService.log_action(
+            db=self.invoice_repo.db,
+            user_id=user_id,
+            action="UPDATED_INVOICE_PAYMENT_STATUS",
+            entity_type="INVOICE",
+            entity_id=str(invoice.id),
+            details=f"Updated Invoice {invoice.invoice_number} payment status to {invoice.payment_status}"
+        )
+
+        return invoice

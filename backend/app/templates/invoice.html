@@ -337,10 +337,12 @@
             <td class="label">Order Reference:</td>
             <td class="value">#{{ invoice.order_id | string | truncate(8, True, '') }}</td>
           </tr>
+          {% if invoice.payment_status and invoice.payment_status | lower == 'paid' %}
           <tr>
             <td class="label">Payment Status:</td>
-            <td class="value"><span class="status-badge">{{ invoice.payment_status }}</span></td>
+            <td class="value"><span class="status-badge paid">PAID</span></td>
           </tr>
+          {% endif %}
         </table>
       </div>
     </div>

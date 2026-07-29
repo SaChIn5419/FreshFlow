@@ -44,4 +44,11 @@ export const invoiceService = {
     const response = await apiClient.get<Invoice>(`/invoices/${id}`);
     return response.data;
   },
+
+  updatePaymentStatus: async (id: string, payment_status: string): Promise<Invoice> => {
+    const response = await apiClient.patch<Invoice>(`/invoices/${id}/payment-status`, null, {
+      params: { payment_status }
+    });
+    return response.data;
+  },
 };

@@ -86,3 +86,15 @@ def download_invoice_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{invoice.invoice_number}.pdf"'},
     )
+
+
+@router.patch("/{id}/payment-status", response_model=Invoice)
+def update_invoice_payment_status(
+    id: uuid.UUID,
+    payment_status: str,
+    svc: InvoiceService = Depends(get_invoice_service),
+    current_user = Depends(deps.get_current_active_user)
+):
+    """Updates the payment status of an invoice (e.g. Paid / Unpaid)."""
+    return svc.update_payment_status(id, payment_status, str(current_user.id))
+
