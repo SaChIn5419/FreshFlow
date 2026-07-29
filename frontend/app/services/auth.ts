@@ -24,6 +24,13 @@ export const authService = {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
     });
+
+    if (response.data?.access_token && typeof window !== 'undefined') {
+      localStorage.setItem('access_token', response.data.access_token);
+      if (response.data.refresh_token) {
+        localStorage.setItem('refresh_token', response.data.refresh_token);
+      }
+    }
     return response.data;
   },
 
@@ -37,6 +44,12 @@ export const authService = {
       await apiClient.post('/auth/logout');
     } catch {
       // Ignore errors on logout
+    } finally {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+      }
     }
   },
 };

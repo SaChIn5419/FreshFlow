@@ -27,11 +27,23 @@ export const apiClient = axios.create({
   },
 });
 
-// Request Interceptor: Attach CSRF header & set baseURL
+// Request Interceptor: Attach Bearer token & CSRF header & set baseURL
 apiClient.interceptors.request.use(
   (config) => {
     config.baseURL = getApiUrl();
     config.withCredentials = true;
+
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        if (typeof config.headers.set === 'function') {
+          config.headers.set('Authorization', `Bearer ${token}`);
+        } else {
+          (config.headers as any)['Authorization'] = `Bearer ${token}`;
+        }
+      }
+    }
+
     if (typeof config.headers.set === 'function') {
       config.headers.set('X-Requested-With', 'FreshFlow');
     } else {
