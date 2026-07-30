@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+import uuid
 
 from app.api.deps import get_db, get_current_active_admin
 from app.models.order import Order, OrderItem
@@ -71,18 +72,24 @@ def get_dashboard_stats(
     # Sort top 5 products
     sorted_pids = sorted(product_totals.items(), key=lambda x: x[1], reverse=True)[:5]
     top_products = []
-    for pid, qty in sorted_pids:
-        product = db.query(Product).filter(Product.id == pid).first()
-        if product:
-            top_products.append(
-                TopProductStat(
-                    id=str(product.id),
-                    name=product.name,
-                    category=product.category or "General",
-                    total_quantity=round(qty, 2),
-                    unit=product.unit or "KG"
+    
+    if sorted_pids:
+        top_product_ids = [uuid.UUID(pid) for pid, _ in sorted_pids]
+        products = db.query(Product).filter(Product.id.in_(top_product_ids)).all()
+        product_map = {str(p.id): p for p in products}
+
+        for pid, qty in sorted_pids:
+            product = product_map.get(pid)
+            if product:
+                top_products.append(
+                    TopProductStat(
+                        id=str(product.id),
+                        name=product.name,
+                        category=product.category or "General",
+                        total_quantity=round(qty, 2),
+                        unit=product.unit or "KG"
+                    )
                 )
-            )
 
     return DashboardStatsResponse(
         orders_today=orders_today,
