@@ -21,6 +21,7 @@ class OrderStatus(str, enum.Enum):
     INVOICED = "Invoiced"
     PAID = "Paid"
     COMPLETED = "Completed"
+    CANCELLED = "Cancelled"
 
 
 class PaymentStatus(str, enum.Enum):
