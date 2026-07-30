@@ -32,6 +32,44 @@ def get_order_service(db: Session = Depends(deps.get_db)) -> OrderService:
 def get_po_service(db: Session = Depends(deps.get_db)) -> PurchaseOrderService:
     return PurchaseOrderService(db)
 
+import csv
+from io import StringIO
+from fastapi.responses import StreamingResponse
+
+@router.get("/export/csv")
+def export_orders_csv(
+    db: Session = Depends(deps.get_db),
+    current_user = Depends(deps.get_current_active_admin)
+):
+    order_repo = OrderRepository(db)
+    product_repo = ProductRepository(db)
+    svc = OrderService(order_repo, product_repo)
+    items, _ = order_repo.get_all(skip=0, limit=10000)
+
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Order ID", "Customer Name", "Status", "Items Count", "Subtotal", "GST", "Grand Total", "Created At"])
+
+    for o in items:
+        customer_name = o.customer.restaurant_name if o.customer else "Unknown"
+        writer.writerow([
+            str(o.id),
+            customer_name,
+            o.status,
+            len(o.items),
+            f"{float(o.subtotal or 0):.2f}",
+            f"{float(o.gst or 0):.2f}",
+            f"{float(o.grand_total or 0):.2f}",
+            o.created_at.isoformat() if o.created_at else ""
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="orders_export.csv"'}
+    )
+
 @router.get("/", response_model=PaginatedResponse[Order])
 def read_orders(
     skip: int = Query(0, ge=0),

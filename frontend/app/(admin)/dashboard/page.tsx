@@ -9,6 +9,7 @@ import { productService } from "@/app/services/products";
 import { supplierService } from "@/app/services/suppliers";
 import { purchaseOrderService } from "@/app/services/purchase_orders";
 import { packingService } from "@/app/services/packing";
+import { dashboardService } from "@/app/services/dashboard";
 import { PageShell } from "@/app/components/layout/PageShell";
 import { format, isToday, parseISO, subDays } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,6 +77,12 @@ export default function DashboardPage() {
   const { data: packingLists = [], isLoading: isLoadingPacking, refetch: refetchPacking } = useQuery({
     queryKey: ["packingLists"],
     queryFn: () => packingService.getPackingLists().catch(() => []),
+  });
+
+  // 7. Fetch Dashboard Stats KPI
+  const { data: stats } = useQuery({
+    queryKey: ["dashboardStats"],
+    queryFn: () => dashboardService.getStats(),
   });
 
   const isLoading = isLoadingOrders && isLoadingInvoices && isLoadingCustomers && isLoadingProducts;

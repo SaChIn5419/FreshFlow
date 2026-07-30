@@ -24,6 +24,44 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 from app.schemas.pagination import PaginatedResponse
 
+import csv
+from io import StringIO
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
+
+@router.get("/export/csv")
+def export_invoices_csv(
+    db: Session = Depends(deps.get_db),
+    current_user = Depends(deps.get_current_active_admin)
+):
+    svc = InvoiceService(InvoiceRepository(db), OrderRepository(db), CustomerRepository(db), SettingsRepository(db))
+    items, _ = svc.invoice_repo.get_all(skip=0, limit=10000)
+
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Invoice Number", "Order ID", "Customer Name", "Subtotal", "GST", "Grand Total", "Paid Amount", "Balance Due", "Payment Status", "Created At"])
+
+    for inv in items:
+        customer_name = inv.customer.restaurant_name if inv.customer else "Unknown"
+        writer.writerow([
+            inv.invoice_number,
+            str(inv.order_id),
+            customer_name,
+            f"{float(inv.subtotal or 0):.2f}",
+            f"{float(inv.gst or 0):.2f}",
+            f"{float(inv.grand_total or 0):.2f}",
+            f"{float(inv.paid_amount or 0):.2f}",
+            f"{float(inv.balance_due or 0):.2f}",
+            inv.payment_status or "Unpaid",
+            inv.created_at.isoformat() if inv.created_at else ""
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="invoices_receivables_export.csv"'}
+    )
+
 @router.get("/", response_model=PaginatedResponse[Invoice])
 def read_invoices(
     skip: int = Query(0, ge=0),

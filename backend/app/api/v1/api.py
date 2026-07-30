@@ -11,6 +11,7 @@ from app.api.v1.purchase_orders import router as purchase_orders_router
 from app.api.v1.packing import router as packing_router
 from app.api.v1.finance import router as finance_router
 from app.api.v1.audit import router as audit_router
+from app.api.v1.dashboard import router as dashboard_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router.router, prefix="/auth", tags=["Authentication"])
@@ -24,3 +25,5 @@ api_router.include_router(purchase_orders_router.router, prefix="/purchase-order
 api_router.include_router(packing_router.router, prefix="/packing", tags=["Packing Lists"])
 api_router.include_router(finance_router.router, prefix="/finance", tags=["Finance"])
 api_router.include_router(audit_router.router, prefix="/audit-logs", tags=["Audit Logs"])
+api_router.include_router(dashboard_router.router, prefix="/dashboard", tags=["Dashboard"])
+
