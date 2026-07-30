@@ -1,9 +1,21 @@
 from pathlib import Path
+from datetime import datetime, timezone
+import zoneinfo
 from jinja2 import Environment, FileSystemLoader
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
+IST_TZ = zoneinfo.ZoneInfo("Asia/Kolkata")
 
 _env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)), autoescape=True)
+
+
+def format_ist(dt: datetime | None) -> str:
+    if not dt:
+        dt = datetime.now(timezone.utc)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    ist_dt = dt.astimezone(IST_TZ)
+    return ist_dt.strftime("%d %b %Y, %I:%M %p IST")
 
 
 def number_to_words_inr(number: float) -> str:
@@ -64,6 +76,8 @@ def render_invoice(invoice, customer, settings) -> str:
     amount_words = number_to_words_inr(invoice.grand_total)
     total_items_count = len(invoice.items) if invoice.items else 0
     total_qty_sum = sum(float(i.quantity) for i in invoice.items) if invoice.items else 0
+    formatted_ist_date = format_ist(invoice.created_at)
+
     return template.render(
         invoice=invoice,
         customer=customer,
@@ -71,6 +85,7 @@ def render_invoice(invoice, customer, settings) -> str:
         amount_words=amount_words,
         total_items_count=total_items_count,
         total_qty_sum=total_qty_sum,
+        formatted_ist_date=formatted_ist_date,
     )
 
 

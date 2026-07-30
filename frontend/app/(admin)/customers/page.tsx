@@ -352,32 +352,34 @@ export default function CustomersPage() {
                     className="rounded-xl border-gray-200"
                   />
                 </div>
-                {!editingCustomer && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="email" className="font-semibold text-gray-800">Email (Login ID) *</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        required={!editingCustomer}
-                        className="rounded-xl border-gray-200"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="password" className="font-semibold text-gray-800">Initial Password *</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        required={!editingCustomer}
-                        className="rounded-xl border-gray-200"
-                      />
-                    </div>
-                  </>
-                )}
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="font-semibold text-gray-800 flex items-center justify-between">
+                    <span>Email (Client Login ID) {editingCustomer ? "" : "*"}</span>
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="e.g. chef@restaurant.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    required={!editingCustomer}
+                    className="rounded-xl border-gray-200"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="font-semibold text-gray-800">
+                    {editingCustomer ? "Reset Password (Optional)" : "Initial Password *"}
+                  </Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder={editingCustomer ? "Leave blank to keep current" : "Set password"}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    required={!editingCustomer}
+                    className="rounded-xl border-gray-200"
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone" className="font-semibold text-gray-800">Phone Number</Label>
                   <Input

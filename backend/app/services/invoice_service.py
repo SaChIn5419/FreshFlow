@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
-from typing import List
+from decimal import Decimal
+from typing import List, Optional
 from app.repositories import InvoiceRepository, OrderRepository, CustomerRepository, SettingsRepository
 from app.models.invoice import Invoice, InvoiceItem
 from app.schemas.invoice import InvoiceCreate
@@ -112,20 +113,47 @@ class InvoiceService:
             self.invoice_repo.db.rollback()
             raise e
 
-    def update_payment_status(self, id: uuid.UUID, payment_status: str, user_id: str) -> Invoice:
+    def record_payment(
+        self, 
+        id: uuid.UUID, 
+        amount_received: Optional[Decimal] = None, 
+        paid_amount: Optional[Decimal] = None, 
+        payment_status: Optional[str] = None, 
+        user_id: str = ""
+    ) -> Invoice:
         invoice = self.invoice_repo.get_by_id(id)
         if not invoice:
             raise InvoiceNotFound()
         
-        status_clean = payment_status.strip()
-        if status_clean.upper() == "PAID":
+        if payment_status and payment_status.strip().upper() == "PAID":
             invoice.paid_amount = invoice.grand_total
             invoice.balance_due = Decimal("0.00")
             invoice.payment_status = "Paid"
-        else:
+        elif payment_status and payment_status.strip().upper() == "UNPAID":
             invoice.paid_amount = Decimal("0.00")
             invoice.balance_due = invoice.grand_total
             invoice.payment_status = "Unpaid"
+        else:
+            if amount_received is not None:
+                current = invoice.paid_amount or Decimal("0.00")
+                invoice.paid_amount = current + amount_received
+            elif paid_amount is not None:
+                invoice.paid_amount = paid_amount
+
+            # Bound paid_amount between 0 and grand_total
+            if invoice.paid_amount > invoice.grand_total:
+                invoice.paid_amount = invoice.grand_total
+            elif invoice.paid_amount < Decimal("0.00"):
+                invoice.paid_amount = Decimal("0.00")
+
+            invoice.balance_due = invoice.grand_total - invoice.paid_amount
+
+            if invoice.balance_due == Decimal("0.00"):
+                invoice.payment_status = "Paid"
+            elif invoice.paid_amount > Decimal("0.00"):
+                invoice.payment_status = "Partial"
+            else:
+                invoice.payment_status = "Unpaid"
 
         self.invoice_repo.db.commit()
         self.invoice_repo.db.refresh(invoice)
@@ -133,10 +161,10 @@ class InvoiceService:
         AuditService.log_action(
             db=self.invoice_repo.db,
             user_id=user_id,
-            action="UPDATED_INVOICE_PAYMENT_STATUS",
+            action="RECORDED_INVOICE_PAYMENT",
             entity_type="INVOICE",
             entity_id=str(invoice.id),
-            details=f"Updated Invoice {invoice.invoice_number} payment status to {invoice.payment_status}"
+            details=f"Updated Invoice {invoice.invoice_number} payment: Paid=₹{invoice.paid_amount}, Balance=₹{invoice.balance_due}, Status={invoice.payment_status}"
         )
 
         return invoice

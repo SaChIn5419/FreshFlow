@@ -32,7 +32,8 @@ class CustomerCreate(CustomerBase):
     )
 
 class CustomerUpdate(CustomerBase):
-    pass
+    email: Optional[str] = None
+    password: Optional[str] = None
 
 class CustomerInDBBase(CustomerBase):
     id: uuid.UUID

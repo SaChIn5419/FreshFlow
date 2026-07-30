@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoiceService } from "@/app/services/invoices";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, Printer, Loader2, CheckCircle2, AlertCircle, Wallet } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, Download, Printer, Loader2, CheckCircle2, AlertCircle, Wallet, DollarSign, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -13,6 +14,7 @@ export default function InvoicePreviewPage() {
   const { id } = useParams() as { id: string };
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const queryClient = useQueryClient();
+  const [typedAmount, setTypedAmount] = useState<string>("");
 
   const { data: invoice, isLoading } = useQuery({
     queryKey: ["invoice", id],
@@ -28,15 +30,17 @@ export default function InvoicePreviewPage() {
     },
   });
 
-  const togglePaymentMutation = useMutation({
-    mutationFn: (newStatus: string) => invoiceService.updatePaymentStatus(id, newStatus),
-    onSuccess: (updatedInvoice) => {
-      toast.success(`Invoice payment status updated to ${updatedInvoice.payment_status}!`);
+  const recordPaymentMutation = useMutation({
+    mutationFn: (params: { amount_received?: number; paid_amount?: number; payment_status?: string }) => 
+      invoiceService.recordPayment({ id, ...params }),
+    onSuccess: (updated) => {
+      toast.success(`Payment updated! Paid: ₹${updated.paid_amount.toFixed(2)}, Due: ₹${updated.balance_due.toFixed(2)} (${updated.payment_status})`);
+      setTypedAmount("");
       queryClient.invalidateQueries({ queryKey: ["invoice", id] });
       queryClient.invalidateQueries({ queryKey: ["invoice-html", id] });
     },
     onError: () => {
-      toast.error("Failed to update payment status");
+      toast.error("Failed to record payment.");
     }
   });
 
@@ -66,7 +70,27 @@ export default function InvoicePreviewPage() {
     );
   }
 
-  const isPaid = invoice.payment_status?.toLowerCase() === "paid";
+  const statusUpper = invoice.payment_status?.toUpperCase() || "UNPAID";
+  const isPaid = statusUpper === "PAID";
+  const isPartial = statusUpper === "PARTIAL";
+
+  const handleAddPayment = () => {
+    const amt = parseFloat(typedAmount);
+    if (isNaN(amt) || amt <= 0) {
+      toast.error("Please enter a valid positive payment amount.");
+      return;
+    }
+    recordPaymentMutation.mutate({ amount_received: amt });
+  };
+
+  const handleSetExactPaid = () => {
+    const amt = parseFloat(typedAmount);
+    if (isNaN(amt) || amt < 0) {
+      toast.error("Please enter a valid payment amount.");
+      return;
+    }
+    recordPaymentMutation.mutate({ paid_amount: amt });
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
@@ -114,62 +138,106 @@ export default function InvoicePreviewPage() {
         </div>
       </div>
 
-      {/* Payment Status Action Control Bar */}
-      <div className={`no-print p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all shadow-2xs ${
+      {/* Payment Status & Interactive Collection Console */}
+      <div className={`no-print p-5 rounded-3xl border transition-all shadow-sm ${
         isPaid 
-          ? "bg-green-50/80 border-green-200" 
-          : "bg-amber-50/80 border-amber-200"
+          ? "bg-green-50/90 border-green-200" 
+          : isPartial
+          ? "bg-amber-50/90 border-amber-200"
+          : "bg-stone-50 border-gray-200"
       }`}>
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-            isPaid ? "bg-green-700 text-white" : "bg-amber-600 text-white"
-          }`}>
-            {isPaid ? <CheckCircle2 className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Payment Status:</span>
-              <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full ${
-                isPaid ? "bg-green-200 text-green-900" : "bg-amber-200 text-amber-900"
-              }`}>
-                {isPaid ? "PAID" : "UNPAID (RECEIVABLE)"}
-              </span>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-gray-200/80">
+          <div className="flex items-center gap-3">
+            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${
+              isPaid ? "bg-green-700 text-white shadow-md shadow-green-700/20" : isPartial ? "bg-amber-600 text-white" : "bg-gray-800 text-white"
+            }`}>
+              {isPaid ? <CheckCircle2 className="w-6 h-6" /> : isPartial ? <DollarSign className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
             </div>
-            <p className="text-sm font-bold text-gray-900 mt-0.5">
-              {isPaid 
-                ? `Full payment of ₹${invoice.grand_total.toFixed(2)} received.` 
-                : `Amount Receivable: ₹${invoice.balance_due.toFixed(2)} (Linked to Accounts Receivable)`
-              }
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Payment Status:</span>
+                <span className={`text-xs font-extrabold px-3 py-0.5 rounded-full ${
+                  isPaid ? "bg-green-200 text-green-900" : isPartial ? "bg-amber-200 text-amber-900" : "bg-gray-200 text-gray-800"
+                }`}>
+                  {isPaid ? "FULL PAYMENT (PAID)" : isPartial ? "PARTIAL PAYMENT" : "UNPAID (RECEIVABLE)"}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-bold text-gray-900 mt-1">
+                <span>Grand Total: ₹{invoice.grand_total.toFixed(2)}</span>
+                <span className="text-green-700">Paid: ₹{(invoice.paid_amount || 0).toFixed(2)}</span>
+                <span className={invoice.balance_due > 0 ? "text-amber-700" : "text-gray-500"}>
+                  Balance Due: ₹{(invoice.balance_due || 0).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {!isPaid && (
+              <Button
+                size="sm"
+                onClick={() => recordPaymentMutation.mutate({ payment_status: "Paid" })}
+                disabled={recordPaymentMutation.isPending}
+                className="bg-green-700 hover:bg-green-800 text-white rounded-xl font-extrabold text-xs px-4 shadow-2xs"
+              >
+                ✓ Mark 100% Paid (₹{invoice.balance_due.toFixed(2)})
+              </Button>
+            )}
+            {isPaid && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => recordPaymentMutation.mutate({ payment_status: "Unpaid" })}
+                disabled={recordPaymentMutation.isPending}
+                className="rounded-xl font-bold text-xs"
+              >
+                Reset to Unpaid
+              </Button>
+            )}
+            <Link href="/finance/receivables">
+              <Button size="sm" variant="outline" className="rounded-xl font-bold text-xs">
+                <Wallet className="w-3.5 h-3.5 mr-1" />
+                Receivables Ledger
+              </Button>
+            </Link>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Button
-            size="sm"
-            onClick={() => togglePaymentMutation.mutate(isPaid ? "Unpaid" : "Paid")}
-            disabled={togglePaymentMutation.isPending}
-            className={`w-full sm:w-auto rounded-xl font-extrabold text-xs shadow-2xs ${
-              isPaid 
-                ? "bg-gray-200 hover:bg-gray-300 text-gray-800" 
-                : "bg-green-700 hover:bg-green-800 text-white"
-            }`}
-          >
-            {togglePaymentMutation.isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-1" />
-            ) : isPaid ? (
-              "Mark as Unpaid"
-            ) : (
-              `✓ Mark as Paid (₹${invoice.balance_due.toFixed(2)})`
-            )}
-          </Button>
+        {/* Type Amount Received Form (e.g. 50k out of 1.5L) */}
+        <div className="pt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-xs font-bold text-gray-700 whitespace-nowrap">Type Amount Received (₹):</span>
+            <Input
+              type="number"
+              step="any"
+              min="0"
+              placeholder="e.g. 50000"
+              value={typedAmount}
+              onChange={(e) => setTypedAmount(e.target.value)}
+              className="w-40 h-9 rounded-xl border-gray-300 font-bold bg-white text-sm"
+            />
+          </div>
 
-          <Link href="/finance/receivables">
-            <Button size="sm" variant="outline" className="rounded-xl font-bold text-xs">
-              <Wallet className="w-3.5 h-3.5 mr-1" />
-              Receivables Hub
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <Button
+              size="sm"
+              onClick={handleAddPayment}
+              disabled={recordPaymentMutation.isPending || !typedAmount}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs"
+            >
+              <PlusCircle className="w-3.5 h-3.5 mr-1" />
+              + Add to Paid ({typedAmount ? `₹${typedAmount}` : "₹0"})
             </Button>
-          </Link>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleSetExactPaid}
+              disabled={recordPaymentMutation.isPending || !typedAmount}
+              className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 rounded-xl font-bold text-xs"
+            >
+              Set Total Paid to ₹{typedAmount || "0"}
+            </Button>
+          </div>
         </div>
       </div>
 

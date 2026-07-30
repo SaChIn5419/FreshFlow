@@ -70,6 +70,20 @@ class CustomerService:
         customer.address = data.address
         customer.credit_days = data.credit_days
         customer.is_active = data.is_active
+
+        # Update associated User login credentials if provided
+        if customer.user_id:
+            user = self.user_repo.get_by_id(customer.user_id)
+            if user:
+                if data.email and data.email.strip() and data.email != user.email:
+                    existing = self.user_repo.get_by_email(data.email)
+                    if existing and existing.id != user.id:
+                        raise BaseAppException(status_code=400, message="Email already in use", error_id="email_registered")
+                    user.email = data.email.strip()
+                if data.password and data.password.strip():
+                    user.password_hash = get_password_hash(data.password.strip())
+                self.user_repo.update(user)
+
         return self.repository.update(customer)
 
     def deactivate_customer(self, id: uuid.UUID) -> bool:

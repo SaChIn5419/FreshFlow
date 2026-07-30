@@ -88,13 +88,23 @@ def download_invoice_pdf(
     )
 
 
+from decimal import Decimal
+
 @router.patch("/{id}/payment-status", response_model=Invoice)
 def update_invoice_payment_status(
     id: uuid.UUID,
-    payment_status: str,
+    payment_status: str | None = None,
+    paid_amount: Decimal | None = None,
+    amount_received: Decimal | None = None,
     svc: InvoiceService = Depends(get_invoice_service),
     current_user = Depends(deps.get_current_active_user)
 ):
-    """Updates the payment status of an invoice (e.g. Paid / Unpaid)."""
-    return svc.update_payment_status(id, payment_status, str(current_user.id))
+    """Updates invoice payment status or records typed payment amount (e.g. 50k out of 1.5L)."""
+    return svc.record_payment(
+        id=id,
+        amount_received=amount_received,
+        paid_amount=paid_amount,
+        payment_status=payment_status,
+        user_id=str(current_user.id)
+    )
 

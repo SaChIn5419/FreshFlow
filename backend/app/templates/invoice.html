@@ -278,16 +278,14 @@
       height: 40px;
     }
 
-    .status-badge {
-      display: inline-block;
-      padding: 3px 10px;
-      font-size: 9px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      border-radius: 20px;
+    .status-badge.paid {
       background: #d1fae5;
       color: #065f46;
+    }
+
+    .status-badge.partial {
+      background: #fef3c7;
+      color: #92400e;
     }
 
     @media print {
@@ -331,7 +329,7 @@
           </tr>
           <tr>
             <td class="label">Invoice Date & Time:</td>
-            <td class="value">{{ invoice.created_at.strftime('%d %b %Y, %I:%M %p') }}</td>
+            <td class="value">{{ formatted_ist_date if formatted_ist_date else invoice.created_at.strftime('%d %b %Y, %I:%M %p IST') }}</td>
           </tr>
           <tr>
             <td class="label">Order Reference:</td>
@@ -341,6 +339,11 @@
           <tr>
             <td class="label">Payment Status:</td>
             <td class="value"><span class="status-badge paid">PAID</span></td>
+          </tr>
+          {% elif invoice.payment_status and invoice.payment_status | lower == 'partial' %}
+          <tr>
+            <td class="label">Payment Status:</td>
+            <td class="value"><span class="status-badge partial">PARTIAL (Paid: ₹{{ "%.2f" | format(invoice.paid_amount | float) }})</span></td>
           </tr>
           {% endif %}
         </table>
@@ -431,17 +434,24 @@
           <span>₹ {{ "%.2f" | format(invoice.subtotal | float) }}</span>
         </div>
         <div class="totals-row">
-          <span>CGST (0%)</span>
-          <span>₹ 0.00</span>
-        </div>
-        <div class="totals-row">
-          <span>SGST (0%)</span>
-          <span>₹ 0.00</span>
-        </div>
-        <div class="totals-row grand">
           <span>Grand Total</span>
           <span>₹ {{ "%.2f" | format(invoice.grand_total | float) }}</span>
         </div>
+        {% if invoice.paid_amount and invoice.paid_amount | float > 0 %}
+        <div class="totals-row">
+          <span>Amount Paid</span>
+          <span style="color: #065f46; font-weight: 700;">- ₹ {{ "%.2f" | format(invoice.paid_amount | float) }}</span>
+        </div>
+        <div class="totals-row grand">
+          <span>Balance Due</span>
+          <span>₹ {{ "%.2f" | format(invoice.balance_due | float) }}</span>
+        </div>
+        {% else %}
+        <div class="totals-row grand">
+          <span>Balance Due</span>
+          <span>₹ {{ "%.2f" | format(invoice.grand_total | float) }}</span>
+        </div>
+        {% endif %}
       </div>
     </div>
 
