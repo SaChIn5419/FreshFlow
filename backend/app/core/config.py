@@ -1,11 +1,13 @@
 import sys
 from pydantic import model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_SECRET = "dev_secret_key_change_in_production"
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
     ENV: str = "dev"
     SECRET_KEY: str = DEFAULT_SECRET
     ALGORITHM: str = "HS256"
@@ -18,9 +20,6 @@ class Settings(BaseSettings):
         if self.ENV != "dev" and self.SECRET_KEY == DEFAULT_SECRET:
             sys.exit("FATAL: SECRET_KEY must be set via env var in non-dev environments")
         return self
-
-    class Config:
-        env_file = ".env"
 
 
 settings = Settings()

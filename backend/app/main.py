@@ -40,9 +40,13 @@ app = FastAPI(title=PROJECT_NAME, version=VERSION, lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+import uuid
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
     response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Content-Security-Policy"] = "default-src 'self'"
