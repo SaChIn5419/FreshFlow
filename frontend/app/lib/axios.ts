@@ -71,10 +71,22 @@ apiClient.interceptors.response.use(
     ) {
       originalRequest._retry = true;
       try {
-        await apiClient.post('/auth/refresh');
+        const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
+        const res = await apiClient.post('/auth/refresh', refreshToken ? { body_refresh_token: refreshToken } : undefined);
+        
+        if (typeof window !== 'undefined' && res.data?.access_token) {
+          localStorage.setItem('access_token', res.data.access_token);
+          if (res.data.refresh_token) {
+            localStorage.setItem('refresh_token', res.data.refresh_token);
+          }
+          originalRequest.headers['Authorization'] = `Bearer ${res.data.access_token}`;
+        }
+        
         return apiClient(originalRequest);
       } catch (refreshErr) {
         if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
           localStorage.removeItem('user');
           window.location.href = '/login';
           toast.error("Your session has expired. Please log in again.");

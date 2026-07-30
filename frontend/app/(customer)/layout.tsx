@@ -7,6 +7,7 @@ import { LogOut, Leaf, ShoppingCart, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 export default function CustomerLayout({
   children,
@@ -63,7 +64,9 @@ export default function CustomerLayout({
         </div>
       </div>
       <main className="flex-1 max-w-lg mx-auto w-full">
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </main>
     </div>
   );

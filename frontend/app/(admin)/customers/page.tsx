@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customerService, Customer, CustomerCreate, CustomerUpdate } from "@/app/services/customers";
 import { productService, Product } from "@/app/services/products";
 import { PageShell } from "@/app/components/layout/PageShell";
@@ -27,10 +28,43 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const queryClient = useQueryClient();
+
+  const { data: customers = [], isLoading } = useQuery({
+    queryKey: ['customers'],
+    queryFn: () => customerService.getCustomers(),
+    staleTime: 30000,
+  });
+
+  const createUpdateMutation = useMutation({
+    mutationFn: async (data: CustomerCreate) => {
+      if (editingCustomer) {
+        return await customerService.updateCustomer(editingCustomer.id, data);
+      }
+      return await customerService.createCustomer(data);
+    },
+    onSuccess: () => {
+      toast.success(`Customer ${editingCustomer ? "updated" : "created"} successfully!`);
+      setIsDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.detail || "An error occurred.");
+    }
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: (id: string) => customerService.deactivateCustomer(id),
+    onSuccess: () => {
+      toast.success("Customer deactivated.");
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+    },
+    onError: () => {
+      toast.error("Failed to deactivate customer.");
+    }
+  });
 
   // Form state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -55,22 +89,7 @@ export default function CustomersPage() {
   const [currentTemplateIds, setCurrentTemplateIds] = useState<string[]>([]);
   const [isProductsLoading, setIsProductsLoading] = useState(false);
 
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
-
-  const fetchCustomers = async () => {
-    try {
-      setIsLoading(true);
-      const data = await customerService.getCustomers();
-      setCustomers(data);
-    } catch (error) {
-      toast.error("Failed to load customers.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Removed raw fetch functions
   const handleOpenDialog = (customer?: Customer) => {
     if (customer) {
       setEditingCustomer(customer);
@@ -102,35 +121,14 @@ export default function CustomersPage() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      if (editingCustomer) {
-        await customerService.updateCustomer(editingCustomer.id, formData);
-        toast.success("Customer updated successfully!");
-      } else {
-        await customerService.createCustomer(formData);
-        toast.success("Customer created successfully!");
-      }
-      setIsDialogOpen(false);
-      fetchCustomers();
-    } catch (error: any) {
-      toast.error(error?.response?.data?.detail || "An error occurred.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    createUpdateMutation.mutate(formData);
   };
 
-  const handleDeactivate = async (id: string) => {
+  const handleDeactivate = (id: string) => {
     if (confirm("Are you sure you want to deactivate this customer?")) {
-      try {
-        await customerService.deactivateCustomer(id);
-        toast.success("Customer deactivated.");
-        fetchCustomers();
-      } catch (error) {
-        toast.error("Failed to deactivate customer.");
-      }
+      deactivateMutation.mutate(id);
     }
   };
 
@@ -427,8 +425,8 @@ export default function CustomersPage() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-xl">
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-green-700 hover:bg-green-800 text-white rounded-xl" disabled={isSubmitting}>
-                  {isSubmitting ? (
+                <Button type="submit" className="bg-green-700 hover:bg-green-800 text-white rounded-xl" disabled={createUpdateMutation.isPending}>
+                  {createUpdateMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Saving...

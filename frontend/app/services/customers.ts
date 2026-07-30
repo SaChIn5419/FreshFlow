@@ -41,10 +41,14 @@ export interface CustomerUpdate {
   is_active: boolean;
 }
 
+import { PaginatedResponse } from './pagination';
+
 export const customerService = {
-  getCustomers: async (): Promise<Customer[]> => {
-    const response = await apiClient.get<Customer[]>('/customers/');
-    return response.data;
+  getCustomers: async (skip: number = 0, limit: number = 1000, search?: string): Promise<Customer[]> => {
+    const params = new URLSearchParams({ skip: skip.toString(), limit: limit.toString() });
+    if (search) params.append('search', search);
+    const response = await apiClient.get<PaginatedResponse<Customer>>(`/customers/?${params.toString()}`);
+    return response.data.items;
   },
   getCustomer: async (id: string): Promise<Customer> => {
     const response = await apiClient.get<Customer>(`/customers/${id}`);

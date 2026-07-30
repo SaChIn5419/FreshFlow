@@ -19,11 +19,23 @@ class OrderRepository:
             selectinload(Order.items).joinedload(OrderItem.product)
         ).filter(Order.request_id == request_id).first()
 
-    def get_all(self) -> List[Order]:
-        return self.db.query(Order).options(
+    def get_all(self, skip: int = 0, limit: int = 100, search: Optional[str] = None) -> tuple[List[Order], int]:
+        query = self.db.query(Order).options(
             joinedload(Order.customer),
             selectinload(Order.items).joinedload(OrderItem.product)
-        ).order_by(Order.created_at.desc()).all()
+        )
+
+        if search:
+            from app.models.customer import Customer
+            search_pattern = f"%{search}%"
+            query = query.join(Order.customer).filter(
+                (Customer.restaurant_name.ilike(search_pattern)) |
+                (Order.id.cast(str).ilike(search_pattern))
+            )
+
+        total = query.count()
+        items = query.order_by(Order.created_at.desc()).offset(skip).limit(limit).all()
+        return items, total
 
     def get_by_customer(self, customer_id: uuid.UUID) -> List[Order]:
         return self.db.query(Order).options(

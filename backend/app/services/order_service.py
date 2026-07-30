@@ -13,8 +13,15 @@ class OrderService:
     def get_order(self, id: uuid.UUID) -> Order | None:
         return self.order_repo.get_by_id(id)
 
-    def get_all_orders(self) -> List[Order]:
-        return self.order_repo.get_all()
+    def get_all_orders(self, skip: int = 0, limit: int = 100, search: str | None = None) -> dict:
+        items, total = self.order_repo.get_all(skip=skip, limit=limit, search=search)
+        return {
+            "items": items,
+            "total": total,
+            "page": (skip // limit) + 1 if limit > 0 else 1,
+            "size": limit,
+            "pages": (total + limit - 1) // limit if limit > 0 else 1
+        }
         
     def get_orders_by_customer(self, customer_id: uuid.UUID) -> List[Order]:
         return self.order_repo.get_by_customer(customer_id)

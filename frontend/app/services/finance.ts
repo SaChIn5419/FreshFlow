@@ -45,15 +45,18 @@ export interface ProfitabilityMetrics {
   gross_margin_percent: number;
 }
 
+import { PaginatedResponse } from './pagination';
+
 export const financeService = {
   recordCustomerPayment: async (data: CustomerPaymentCreate) => {
     const response = await apiClient.post<CustomerPaymentResponse>('/finance/customer-payments', data);
     return response.data;
   },
   
-  getCustomerPayments: async () => {
-    const response = await apiClient.get<CustomerPaymentResponse[]>('/finance/customer-payments');
-    return response.data;
+  getCustomerPayments: async (skip: number = 0, limit: number = 1000) => {
+    const params = new URLSearchParams({ skip: skip.toString(), limit: limit.toString() });
+    const response = await apiClient.get<PaginatedResponse<CustomerPaymentResponse>>(`/finance/customer-payments?${params.toString()}`);
+    return response.data.items;
   },
 
   recordSupplierPayment: async (data: SupplierPaymentCreate) => {
@@ -61,9 +64,10 @@ export const financeService = {
     return response.data;
   },
 
-  getSupplierPayments: async () => {
-    const response = await apiClient.get<SupplierPaymentResponse[]>('/finance/supplier-payments');
-    return response.data;
+  getSupplierPayments: async (skip: number = 0, limit: number = 1000) => {
+    const params = new URLSearchParams({ skip: skip.toString(), limit: limit.toString() });
+    const response = await apiClient.get<PaginatedResponse<SupplierPaymentResponse>>(`/finance/supplier-payments?${params.toString()}`);
+    return response.data.items;
   },
 
   getProfitability: async () => {

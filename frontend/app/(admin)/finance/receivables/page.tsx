@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoiceService, Invoice } from "@/app/services/invoices";
 import { financeService } from "@/app/services/finance";
 import { customerService, Customer } from "@/app/services/customers";
@@ -29,9 +30,31 @@ import { Loader2, Receipt, AlertCircle, CheckCircle2, DollarSign, Wallet } from 
 import { toast } from "sonner";
 
 export default function ReceivablesPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [customers, setCustomers] = useState<Record<string, Customer>>({});
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  const { data: invoices = [], isLoading: isLoadingInvoices } = useQuery({
+    queryKey: ['invoices'],
+    queryFn: () => invoiceService.getInvoices(),
+    staleTime: 30000,
+  });
+
+  const { data: customersList = [], isLoading: isLoadingCustomers } = useQuery({
+    queryKey: ['customers'],
+    queryFn: () => customerService.getCustomers(),
+    staleTime: 30000,
+  });
+
+  const loading = isLoadingInvoices || isLoadingCustomers;
+
+  const customers = useMemo(() => {
+    const custMap: Record<string, Customer> = {};
+    customersList.forEach((c) => (custMap[c.id] = c));
+    return custMap;
+  }, [customersList]);
+
+  const unpaidInvoices = useMemo(() => {
+    return invoices.filter((inv) => inv.payment_status !== "Paid");
+  }, [invoices]);
   
   // Payment Modal State
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -40,53 +63,39 @@ export default function ReceivablesPage() {
   const [paymentNotes, setPaymentNotes] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [invData, custData] = await Promise.all([
-        invoiceService.getInvoices(),
-        customerService.getCustomers()
-      ]);
-      
-      const custMap: Record<string, Customer> = {};
-      custData.forEach((c) => (custMap[c.id] = c));
-      setCustomers(custMap);
-      
-      setInvoices(invData.filter((inv) => inv.payment_status !== "Paid"));
-    } catch (err) {
-      toast.error("Failed to load receivables data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleRecordPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedInvoice) return;
-    
-    setIsSubmitting(true);
-    try {
+  const paymentMutation = useMutation({
+    mutationFn: async (data: any) => {
       await financeService.recordCustomerPayment({
-        customer_id: selectedInvoice.customer_id,
-        invoice_id: selectedInvoice.id,
-        amount: parseFloat(paymentAmount),
-        method: paymentMethod,
-        notes: paymentNotes,
+        customer_id: data.customer_id,
+        invoice_id: data.invoice_id,
+        amount: parseFloat(data.amount),
+        method: data.method,
+        notes: data.notes,
       });
+    },
+    onSuccess: () => {
       toast.success(`Recorded payment of ₹${paymentAmount}!`);
       setSelectedInvoice(null);
       setPaymentAmount("");
       setPaymentNotes("");
-      await fetchData();
-    } catch (err) {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    },
+    onError: () => {
       toast.error("Failed to record payment.");
-    } finally {
-      setIsSubmitting(false);
     }
+  });
+
+  const handleRecordPayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedInvoice) return;
+    
+    paymentMutation.mutate({
+        customer_id: selectedInvoice.customer_id,
+        invoice_id: selectedInvoice.id,
+        amount: paymentAmount,
+        method: paymentMethod,
+        notes: paymentNotes,
+    });
   };
 
   const calculateDaysOverdue = (invoice: Invoice) => {
@@ -95,7 +104,7 @@ export default function ReceivablesPage() {
     return Math.floor(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  const totalPending = invoices.reduce((sum, inv) => sum + (inv.balance_due || 0), 0);
+  const totalPending = unpaidInvoices.reduce((sum, inv) => sum + (inv.balance_due || 0), 0);
 
   return (
     <PageShell
@@ -111,7 +120,7 @@ export default function ReceivablesPage() {
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Pending Collections</p>
               <h3 className="text-2xl font-extrabold text-gray-900 mt-1">₹{totalPending.toFixed(2)}</h3>
               <p className="text-xs text-amber-700 font-semibold mt-1">
-                {invoices.length} outstanding invoices
+                {unpaidInvoices.length} outstanding invoices
               </p>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200/60 flex items-center justify-center text-amber-700">
@@ -142,7 +151,7 @@ export default function ReceivablesPage() {
                     Loading accounts receivable...
                   </TableCell>
                 </TableRow>
-              ) : invoices.length === 0 ? (
+              ) : unpaidInvoices.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-12 text-gray-500">
                     <CheckCircle2 className="w-8 h-8 text-green-600 mx-auto mb-2" />
@@ -150,7 +159,7 @@ export default function ReceivablesPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                invoices.map((invoice) => {
+                unpaidInvoices.map((invoice) => {
                   const customer = customers[invoice.customer_id];
                   const daysOverdue = calculateDaysOverdue(invoice);
                   const isOverdue = daysOverdue > 0;
@@ -264,8 +273,8 @@ export default function ReceivablesPage() {
                   <Button type="button" variant="outline" onClick={() => setSelectedInvoice(null)} className="rounded-xl">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSubmitting} className="bg-green-700 hover:bg-green-800 text-white rounded-xl">
-                    {isSubmitting ? (
+                  <Button type="submit" disabled={paymentMutation.isPending} className="bg-green-700 hover:bg-green-800 text-white rounded-xl">
+                    {paymentMutation.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Saving...

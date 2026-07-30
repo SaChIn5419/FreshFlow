@@ -27,8 +27,15 @@ class InvoiceService:
     def get_invoice(self, id: uuid.UUID) -> Invoice | None:
         return self.invoice_repo.get_by_id(id)
 
-    def get_all_invoices(self) -> List[Invoice]:
-        return self.invoice_repo.get_all()
+    def get_all_invoices(self, skip: int = 0, limit: int = 100, search: str | None = None) -> dict:
+        items, total = self.invoice_repo.get_all(skip=skip, limit=limit, search=search)
+        return {
+            "items": items,
+            "total": total,
+            "page": (skip // limit) + 1 if limit > 0 else 1,
+            "size": limit,
+            "pages": (total + limit - 1) // limit if limit > 0 else 1
+        }
 
     def create_invoice(self, data: InvoiceCreate, user_id: str) -> Invoice:
         # Validations
@@ -44,7 +51,7 @@ class InvoiceService:
             raise CompanySettingsMissing()
             
         # Check if invoice already exists for this order
-        existing_invoices = self.invoice_repo.get_all() # simplify for demo, should be by order_id
+        existing_invoices, _ = self.invoice_repo.get_all(skip=0, limit=10000)
         for inv in existing_invoices:
             if inv.order_id == data.order_id:
                 raise InvoiceAlreadyGenerated()

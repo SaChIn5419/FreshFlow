@@ -18,12 +18,19 @@ def get_customer_service(db: Session = Depends(deps.get_db)) -> CustomerService:
     product_repo = ProductRepository(db)
     return CustomerService(repo, user_repo, product_repo)
 
-@router.get("/", response_model=List[Customer])
+from typing import List, Optional
+from fastapi import APIRouter, Depends, Query
+from app.schemas.pagination import PaginatedResponse
+
+@router.get("/", response_model=PaginatedResponse[Customer])
 def read_customers(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    search: Optional[str] = None,
     svc: CustomerService = Depends(get_customer_service),
     current_user = Depends(deps.get_current_active_user)
 ):
-    return svc.get_all_customers()
+    return svc.get_all_customers(skip=skip, limit=limit, search=search)
 
 @router.post("/", response_model=Customer)
 def create_customer(

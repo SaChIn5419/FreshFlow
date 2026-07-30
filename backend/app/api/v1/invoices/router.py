@@ -20,12 +20,19 @@ def get_invoice_service(db: Session = Depends(deps.get_db)) -> InvoiceService:
     settings_repo = SettingsRepository(db)
     return InvoiceService(invoice_repo, order_repo, customer_repo, settings_repo)
 
-@router.get("/", response_model=List[Invoice])
+from typing import List, Optional
+from fastapi import APIRouter, Depends, Query
+from app.schemas.pagination import PaginatedResponse
+
+@router.get("/", response_model=PaginatedResponse[Invoice])
 def read_invoices(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    search: Optional[str] = None,
     svc: InvoiceService = Depends(get_invoice_service),
     current_user = Depends(deps.get_current_active_user)
 ):
-    return svc.get_all_invoices()
+    return svc.get_all_invoices(skip=skip, limit=limit, search=search)
 
 @router.post("/", response_model=Invoice)
 def create_invoice(

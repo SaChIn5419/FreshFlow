@@ -29,15 +29,19 @@ export interface Invoice {
   customer?: { id: string; restaurant_name: string };
 }
 
+import { PaginatedResponse } from './pagination';
+
 export const invoiceService = {
   generateInvoice: async (data: InvoiceCreate): Promise<Invoice> => {
     const response = await apiClient.post<Invoice>('/invoices/', data);
     return response.data;
   },
 
-  getInvoices: async (): Promise<Invoice[]> => {
-    const response = await apiClient.get<Invoice[]>('/invoices/');
-    return response.data;
+  getInvoices: async (skip: number = 0, limit: number = 1000, search?: string): Promise<Invoice[]> => {
+    const params = new URLSearchParams({ skip: skip.toString(), limit: limit.toString() });
+    if (search) params.append('search', search);
+    const response = await apiClient.get<PaginatedResponse<Invoice>>(`/invoices/?${params.toString()}`);
+    return response.data.items;
   },
 
   getInvoice: async (id: string): Promise<Invoice> => {

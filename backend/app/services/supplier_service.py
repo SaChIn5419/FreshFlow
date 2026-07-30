@@ -14,8 +14,15 @@ class SupplierService:
     def get_supplier(self, id: uuid.UUID) -> Optional[Supplier]:
         return self.supplier_repo.get_by_id(id)
 
-    def get_all_suppliers(self) -> List[Supplier]:
-        return self.supplier_repo.get_all()
+    def get_all_suppliers(self, skip: int = 0, limit: int = 100, search: str | None = None) -> dict:
+        items, total = self.supplier_repo.get_all(skip=skip, limit=limit, search=search)
+        return {
+            "items": items,
+            "total": total,
+            "page": (skip // limit) + 1 if limit > 0 else 1,
+            "size": limit,
+            "pages": (total + limit - 1) // limit if limit > 0 else 1
+        }
 
     def create_supplier(self, data: SupplierCreate) -> Supplier:
         supplier = Supplier(

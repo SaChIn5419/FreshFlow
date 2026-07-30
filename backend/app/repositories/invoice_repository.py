@@ -21,12 +21,24 @@ class InvoiceRepository:
             selectinload(Invoice.items)
         ).filter(Invoice.invoice_number == invoice_number).first()
 
-    def get_all(self) -> List[Invoice]:
-        return self.db.query(Invoice).options(
+    def get_all(self, skip: int = 0, limit: int = 100, search: Optional[str] = None) -> tuple[List[Invoice], int]:
+        query = self.db.query(Invoice).options(
             joinedload(Invoice.customer),
             joinedload(Invoice.order),
             selectinload(Invoice.items)
-        ).order_by(Invoice.created_at.desc()).all()
+        )
+        
+        if search:
+            from app.models.customer import Customer
+            search_pattern = f"%{search}%"
+            query = query.join(Invoice.customer).filter(
+                (Customer.restaurant_name.ilike(search_pattern)) |
+                (Invoice.invoice_number.ilike(search_pattern))
+            )
+            
+        total = query.count()
+        items = query.order_by(Invoice.created_at.desc()).offset(skip).limit(limit).all()
+        return items, total
 
     def get_by_order(self, order_id: uuid.UUID) -> List[Invoice]:
         return self.db.query(Invoice).options(

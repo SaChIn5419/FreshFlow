@@ -28,5 +28,21 @@ class AuditService:
         return log_entry
 
     @staticmethod
-    def get_logs(db: Session, limit: int = 100) -> List[AuditLog]:
-        return db.query(AuditLog).order_by(desc(AuditLog.created_at)).limit(limit).all()
+    def get_logs(db: Session, skip: int = 0, limit: int = 100, search: Optional[str] = None) -> dict:
+        query = db.query(AuditLog)
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.filter(
+                (AuditLog.action.ilike(search_pattern)) |
+                (AuditLog.details.ilike(search_pattern)) |
+                (AuditLog.entity_type.ilike(search_pattern))
+            )
+        total = query.count()
+        items = query.order_by(desc(AuditLog.created_at)).offset(skip).limit(limit).all()
+        return {
+            "items": items,
+            "total": total,
+            "page": (skip // limit) + 1 if limit > 0 else 1,
+            "size": limit,
+            "pages": (total + limit - 1) // limit if limit > 0 else 1
+        }

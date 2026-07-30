@@ -16,8 +16,15 @@ class CustomerService:
     def get_customer(self, id: uuid.UUID) -> Customer | None:
         return self.repository.get_by_id(id)
 
-    def get_all_customers(self) -> List[Customer]:
-        return self.repository.get_all()
+    def get_all_customers(self, skip: int = 0, limit: int = 100, search: str | None = None) -> dict:
+        items, total = self.repository.get_all(skip=skip, limit=limit, search=search)
+        return {
+            "items": items,
+            "total": total,
+            "page": (skip // limit) + 1 if limit > 0 else 1,
+            "size": limit,
+            "pages": (total + limit - 1) // limit if limit > 0 else 1
+        }
 
     def create_customer(self, data: CustomerCreate) -> Customer:
         # Check if email is already taken
@@ -46,7 +53,7 @@ class CustomerService:
         created_customer = self.repository.create(customer)
 
         # 3. Auto-assign all active products to the template by default
-        products = self.product_repo.get_all()
+        products, _ = self.product_repo.get_all(skip=0, limit=10000)
         for p in products:
             if p.is_active:
                 from app.models.customer_product_template import CustomerProductTemplate

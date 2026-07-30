@@ -19,3 +19,4 @@ __all__ = [
     "Supplier", "SupplierCreate", "SupplierUpdate", "ProductSupplier", "ProductSupplierCreate",
     "PurchaseOrder", "PurchaseOrderCreate", "PurchaseOrderUpdate", "PurchaseOrderItem", "PurchaseOrderItemCreate",
 ]
+from .pagination import PaginatedResponse

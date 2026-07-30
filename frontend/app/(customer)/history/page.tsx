@@ -20,13 +20,13 @@ export default function CustomerOrdersPage() {
   // 1. Fetch Orders
   const { data: orders, isLoading: isLoadingOrders } = useQuery({
     queryKey: ["orders"],
-    queryFn: orderService.getOrders,
+    queryFn: () => orderService.getOrders(),
   });
 
   // 2. Fetch Invoices to associate orders with invoice PDFs
   const { data: invoices, isLoading: isLoadingInvoices } = useQuery({
     queryKey: ["invoices"],
-    queryFn: invoiceService.getInvoices,
+    queryFn: () => invoiceService.getInvoices(),
   });
 
   const isLoading = isLoadingOrders || isLoadingInvoices;

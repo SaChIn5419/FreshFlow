@@ -70,4 +70,8 @@ def test_read_invoices(client: TestClient, db: Session) -> None:
 
     response = client.get("/api/v1/invoices/", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
+    data = response.json()
+    assert isinstance(data, dict)
+    assert "items" in data
+    assert "total" in data
+    assert isinstance(data["items"], list)

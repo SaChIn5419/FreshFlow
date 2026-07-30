@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { packingService, PackingList, PackingListItem } from "@/app/services/packing";
 import { orderService, Order } from "@/app/services/orders";
 import { PageShell } from "@/app/components/layout/PageShell";
@@ -30,35 +31,31 @@ import {
 import { toast } from "sonner";
 
 export default function PackingPage() {
-  const [packingLists, setPackingLists] = useState<PackingList[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "packed">("pending");
   const [searchTerm, setSearchTerm] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  
+  const queryClient = useQueryClient();
+
+  const { data: orders = [], isLoading: isLoadingOrders } = useQuery({
+    queryKey: ['orders'],
+    queryFn: () => orderService.getOrders(),
+    staleTime: 30000,
+  });
+
+  const { data: packingLists = [], isLoading: isLoadingPL } = useQuery({
+    queryKey: ['packingLists'],
+    queryFn: () => packingService.getPackingLists(),
+    staleTime: 30000,
+  });
+
+  const isLoading = isLoadingOrders || isLoadingPL;
 
   // Selected Packing List for Checklist Modal
   const [activePackingList, setActivePackingList] = useState<PackingList | null>(null);
   const [isChecklistOpen, setIsChecklistOpen] = useState(false);
   const [packerName, setPackerName] = useState("");
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      setIsLoading(true);
-      const ordersData = await orderService.getOrders();
-      setOrders(ordersData);
-
-      const plData = await packingService.getPackingLists();
-      setPackingLists(plData);
-    } catch (error) {
-      toast.error("Failed to load warehouse packing lists.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Replaced fetch with useQuery
 
   const orderMap = useMemo(() => {
     return new Map(orders.map((o) => [o.id, o]));
@@ -75,31 +72,35 @@ export default function PackingPage() {
     }
   };
 
-  const handleToggleItemPacked = async (item: PackingListItem) => {
-    if (!activePackingList) return;
-    try {
+  const handleToggleItemPackedMutation = useMutation({
+    mutationFn: async (item: PackingListItem) => {
       const newStatus = !item.is_packed;
       await packingService.updatePackingItem(item.id, {
         is_packed: newStatus,
         quantity_packed: newStatus ? item.quantity_requested : 0,
       });
-
-      const updatedList = await packingService.getPackingList(activePackingList.id);
+      return packingService.getPackingList(activePackingList!.id);
+    },
+    onSuccess: (updatedList) => {
       setActivePackingList(updatedList);
-      fetchData();
-
+      queryClient.invalidateQueries({ queryKey: ['packingLists'] });
       if (updatedList.status === "Packed") {
         toast.success("🎉 Order packing completed! Order status updated to Packed.");
       }
-    } catch (err) {
+    },
+    onError: () => {
       toast.error("Failed to update item packing status.");
     }
+  });
+
+  const handleToggleItemPacked = (item: PackingListItem) => {
+    if (!activePackingList) return;
+    handleToggleItemPackedMutation.mutate(item);
   };
 
-  const handlePackAll = async () => {
-    if (!activePackingList) return;
-    try {
-      for (const item of activePackingList.items) {
+  const handlePackAllMutation = useMutation({
+    mutationFn: async () => {
+      for (const item of activePackingList!.items) {
         if (!item.is_packed) {
           await packingService.updatePackingItem(item.id, {
             is_packed: true,
@@ -107,23 +108,39 @@ export default function PackingPage() {
           });
         }
       }
-      const updatedList = await packingService.getPackingList(activePackingList.id);
+      return packingService.getPackingList(activePackingList!.id);
+    },
+    onSuccess: (updatedList) => {
       setActivePackingList(updatedList);
-      fetchData();
+      queryClient.invalidateQueries({ queryKey: ['packingLists'] });
       toast.success("🎉 All items marked as packed!");
-    } catch (err) {
+    },
+    onError: () => {
       toast.error("Failed to pack all items.");
     }
+  });
+
+  const handlePackAll = () => {
+    if (!activePackingList) return;
+    handlePackAllMutation.mutate();
   };
 
-  const handleSavePackerName = async () => {
-    if (!activePackingList) return;
-    try {
-      await packingService.updatePackingList(activePackingList.id, { packed_by: packerName });
+  const handleSavePackerNameMutation = useMutation({
+    mutationFn: async () => {
+      await packingService.updatePackingList(activePackingList!.id, { packed_by: packerName });
+    },
+    onSuccess: () => {
       toast.success("Packer name saved.");
-    } catch (err) {
+      queryClient.invalidateQueries({ queryKey: ['packingLists'] });
+    },
+    onError: () => {
       toast.error("Failed to save packer name.");
     }
+  });
+
+  const handleSavePackerName = () => {
+    if (!activePackingList) return;
+    handleSavePackerNameMutation.mutate();
   };
 
   const displayedOrders = useMemo(() => {

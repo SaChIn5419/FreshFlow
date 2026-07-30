@@ -2,11 +2,39 @@ from sqlalchemy.orm import Session
 from decimal import Decimal
 from uuid import UUID
 from datetime import datetime
+from typing import Tuple, List
 from app.models import Payment, SupplierPayment, Invoice, PurchaseOrder
 from app.schemas.finance import CustomerPaymentCreate, SupplierPaymentCreate
+from app.repositories.payment_repository import PaymentRepository
+from app.repositories.supplier_payment_repository import SupplierPaymentRepository
 from app.services.audit_service import AuditService
 
 class FinanceService:
+    def __init__(self, db: Session):
+        self.db = db
+        self.payment_repo = PaymentRepository(db)
+        self.supplier_payment_repo = SupplierPaymentRepository(db)
+
+    def get_customer_payments(self, skip: int = 0, limit: int = 100) -> dict:
+        items, total = self.payment_repo.get_all(skip=skip, limit=limit)
+        return {
+            "items": items,
+            "total": total,
+            "page": (skip // limit) + 1 if limit > 0 else 1,
+            "size": limit,
+            "pages": (total + limit - 1) // limit if limit > 0 else 1,
+        }
+
+    def get_supplier_payments(self, skip: int = 0, limit: int = 100) -> dict:
+        items, total = self.supplier_payment_repo.get_all(skip=skip, limit=limit)
+        return {
+            "items": items,
+            "total": total,
+            "page": (skip // limit) + 1 if limit > 0 else 1,
+            "size": limit,
+            "pages": (total + limit - 1) // limit if limit > 0 else 1,
+        }
+
     @staticmethod
     def record_customer_payment(db: Session, payment_in: CustomerPaymentCreate, user_id: str) -> Payment:
         try:

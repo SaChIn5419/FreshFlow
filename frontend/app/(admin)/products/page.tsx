@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { productService, Product, ProductCreate, ProductUpdate } from "@/app/services/products";
 import { supplierService, Supplier } from "@/app/services/suppliers";
 import { PageShell } from "@/app/components/layout/PageShell";
@@ -30,12 +31,85 @@ import { toast } from "sonner";
 const UNIT_OPTIONS = ["KG", "Bunch", "Piece", "Packet", "Box"];
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("ALL");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const queryClient = useQueryClient();
+
+  const { data: products = [], isLoading: isProductsLoading } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => productService.getProducts(),
+    staleTime: 30000,
+  });
+
+  const { data: suppliers = [], isLoading: isSuppliersLoading } = useQuery({
+    queryKey: ['suppliers'],
+    queryFn: () => supplierService.getSuppliers(),
+    staleTime: 30000,
+  });
+
+  const isLoading = isProductsLoading || isSuppliersLoading;
+
+  const createUpdateMutation = useMutation({
+    mutationFn: async (formDataToSave: any) => {
+      let savedProduct: Product;
+      
+      if (editingProduct) {
+        savedProduct = await productService.updateProduct(editingProduct.id, {
+          name: formDataToSave.name,
+          category: formDataToSave.category,
+          unit: formDataToSave.unit,
+          default_price: formDataToSave.default_price,
+          stock_quantity: formDataToSave.stock_quantity,
+          reorder_level: formDataToSave.reorder_level,
+          is_active: formDataToSave.is_active,
+        } as ProductUpdate);
+      } else {
+        savedProduct = await productService.createProduct({
+          name: formDataToSave.name,
+          category: formDataToSave.category,
+          unit: formDataToSave.unit,
+          default_price: formDataToSave.default_price,
+          stock_quantity: formDataToSave.stock_quantity,
+          reorder_level: formDataToSave.reorder_level,
+        });
+      }
+
+      if (formDataToSave.primary_supplier_id) {
+        await supplierService.linkProductToSupplier(formDataToSave.primary_supplier_id, {
+          product_id: savedProduct.id,
+          cost_price: formDataToSave.cost_price || 0,
+          is_primary_supplier: true,
+        });
+      } else if (editingProduct) {
+        const prevLink = productSupplierMap.get(editingProduct.id);
+        if (prevLink) {
+          await supplierService.unlinkProductFromSupplier(prevLink.id, editingProduct.id);
+        }
+      }
+      return savedProduct;
+    },
+    onSuccess: () => {
+      toast.success(`Product ${editingProduct ? "updated" : "created"} successfully!`);
+      setIsDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.detail || "An error occurred.");
+    }
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: (id: string) => productService.deactivateProduct(id),
+    onSuccess: () => {
+      toast.success("Product deactivated.");
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: () => {
+      toast.error("Failed to deactivate product.");
+    }
+  });
 
   // Form state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -59,24 +133,7 @@ export default function ProductsPage() {
     cost_price: 0,
   });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      setIsLoading(true);
-      const prodData = await productService.getProducts();
-      setProducts(prodData);
-      
-      const supData = await supplierService.getSuppliers();
-      setSuppliers(supData);
-    } catch (error) {
-      toast.error("Failed to load products and suppliers.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Removed raw fetch functions
 
   // Derive product_id -> primary supplier details map
   const productSupplierMap = useMemo(() => {
@@ -136,66 +193,14 @@ export default function ProductsPage() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      let savedProduct: Product;
-      
-      if (editingProduct) {
-        savedProduct = await productService.updateProduct(editingProduct.id, {
-          name: formData.name,
-          category: formData.category,
-          unit: formData.unit,
-          default_price: formData.default_price,
-          stock_quantity: formData.stock_quantity,
-          reorder_level: formData.reorder_level,
-          is_active: formData.is_active,
-        } as ProductUpdate);
-        toast.success("Product updated successfully!");
-      } else {
-        savedProduct = await productService.createProduct({
-          name: formData.name,
-          category: formData.category,
-          unit: formData.unit,
-          default_price: formData.default_price,
-          stock_quantity: formData.stock_quantity,
-          reorder_level: formData.reorder_level,
-        });
-        toast.success("Product created successfully!");
-      }
-
-      if (formData.primary_supplier_id) {
-        await supplierService.linkProductToSupplier(formData.primary_supplier_id, {
-          product_id: savedProduct.id,
-          cost_price: formData.cost_price || 0,
-          is_primary_supplier: true,
-        });
-      } else if (editingProduct) {
-        const prevLink = productSupplierMap.get(editingProduct.id);
-        if (prevLink) {
-          await supplierService.unlinkProductFromSupplier(prevLink.id, editingProduct.id);
-        }
-      }
-
-      setIsDialogOpen(false);
-      fetchData();
-    } catch (error: any) {
-      toast.error(error?.response?.data?.detail || "An error occurred.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    createUpdateMutation.mutate(formData);
   };
 
-  const handleDeactivate = async (id: string) => {
+  const handleDeactivate = (id: string) => {
     if (confirm("Are you sure you want to deactivate this product?")) {
-      try {
-        await productService.deactivateProduct(id);
-        toast.success("Product deactivated.");
-        fetchData();
-      } catch (error) {
-        toast.error("Failed to deactivate product.");
-      }
+      deactivateMutation.mutate(id);
     }
   };
 
@@ -516,8 +521,8 @@ export default function ProductsPage() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-xl">
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-green-700 hover:bg-green-800 text-white rounded-xl" disabled={!formData.unit || isSubmitting}>
-                  {isSubmitting ? (
+                <Button type="submit" className="bg-green-700 hover:bg-green-800 text-white rounded-xl" disabled={!formData.unit || createUpdateMutation.isPending}>
+                  {createUpdateMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Saving...

@@ -11,8 +11,20 @@ class SupplierRepository:
     def get_by_id(self, id: uuid.UUID) -> Optional[Supplier]:
         return self.db.query(Supplier).filter(Supplier.id == id, Supplier.is_active == True).first()
 
-    def get_all(self) -> List[Supplier]:
-        return self.db.query(Supplier).filter(Supplier.is_active == True).all()
+    def get_all(self, skip: int = 0, limit: int = 100, search: Optional[str] = None) -> tuple[List[Supplier], int]:
+        query = self.db.query(Supplier).filter(Supplier.is_active == True)
+        
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.filter(
+                (Supplier.name.ilike(search_pattern)) |
+                (Supplier.email.ilike(search_pattern)) |
+                (Supplier.phone.ilike(search_pattern))
+            )
+            
+        total = query.count()
+        items = query.offset(skip).limit(limit).all()
+        return items, total
 
     def create(self, supplier: Supplier) -> Supplier:
         self.db.add(supplier)

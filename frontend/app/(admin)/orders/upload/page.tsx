@@ -26,12 +26,12 @@ export default function OrderUploadPage() {
 
   const { data: customers, isLoading: isLoadingCustomers } = useQuery({
     queryKey: ["customers"],
-    queryFn: customerService.getCustomers,
+    queryFn: () => customerService.getCustomers(),
   });
 
   const { data: allProducts } = useQuery({
     queryKey: ["products"],
-    queryFn: productService.getProducts,
+    queryFn: () => productService.getProducts(),
   });
 
   const parsePdf = useMutation({

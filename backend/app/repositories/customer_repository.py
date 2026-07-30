@@ -10,8 +10,20 @@ class CustomerRepository:
     def get_by_id(self, id: uuid.UUID) -> Optional[Customer]:
         return self.db.query(Customer).filter(Customer.id == id, Customer.is_active == True).first()
 
-    def get_all(self) -> List[Customer]:
-        return self.db.query(Customer).filter(Customer.is_active == True).all()
+    def get_all(self, skip: int = 0, limit: int = 100, search: Optional[str] = None) -> tuple[List[Customer], int]:
+        query = self.db.query(Customer).filter(Customer.is_active == True)
+        
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.filter(
+                (Customer.restaurant_name.ilike(search_pattern)) |
+                (Customer.owner_name.ilike(search_pattern)) |
+                (Customer.phone.ilike(search_pattern))
+            )
+            
+        total = query.count()
+        items = query.offset(skip).limit(limit).all()
+        return items, total
 
     def create(self, customer: Customer) -> Customer:
         self.db.add(customer)

@@ -91,7 +91,7 @@ class PurchaseOrderService:
         return updated
 
     def get_or_create_unassigned_supplier(self) -> Supplier:
-        suppliers = self.supplier_repo.get_all()
+        suppliers, _ = self.supplier_repo.get_all(skip=0, limit=10000)
         for s in suppliers:
             if s.name == "Unassigned Products":
                 return s

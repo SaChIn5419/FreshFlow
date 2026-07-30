@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { supplierService, Supplier, SupplierCreate, SupplierUpdate } from "@/app/services/suppliers";
 import { PageShell } from "@/app/components/layout/PageShell";
@@ -28,10 +29,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 export default function SuppliersPage() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const queryClient = useQueryClient();
+
+  const { data: suppliers = [], isLoading } = useQuery({
+    queryKey: ['suppliers'],
+    queryFn: () => supplierService.getSuppliers(),
+    staleTime: 30000,
+  });
 
   // Dialog State
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -49,21 +55,7 @@ export default function SuppliersPage() {
     is_active: true,
   });
 
-  useEffect(() => {
-    fetchSuppliers();
-  }, []);
-
-  const fetchSuppliers = async () => {
-    try {
-      setIsLoading(true);
-      const data = await supplierService.getSuppliers();
-      setSuppliers(data);
-    } catch (error) {
-      toast.error("Failed to load suppliers.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Removed raw fetch
 
   const handleOpenDialog = (supplier?: Supplier) => {
     if (supplier) {
@@ -96,35 +88,45 @@ export default function SuppliersPage() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
+  const createUpdateMutation = useMutation({
+    mutationFn: async (dataToSave: any) => {
       if (editingSupplier) {
-        await supplierService.updateSupplier(editingSupplier.id, formData as SupplierUpdate);
-        toast.success("Supplier updated successfully!");
+        await supplierService.updateSupplier(editingSupplier.id, dataToSave as SupplierUpdate);
       } else {
-        await supplierService.createSupplier(formData);
-        toast.success("Supplier created successfully!");
+        await supplierService.createSupplier(dataToSave);
       }
+    },
+    onSuccess: () => {
+      toast.success(`Supplier ${editingSupplier ? "updated" : "created"} successfully!`);
       setIsDialogOpen(false);
-      fetchSuppliers();
-    } catch (error: any) {
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+    },
+    onError: (error: any) => {
       toast.error(error?.response?.data?.detail || "An error occurred.");
-    } finally {
-      setIsSubmitting(false);
     }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    createUpdateMutation.mutate(formData);
   };
 
-  const handleDelete = async (id: string) => {
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await supplierService.deleteSupplier(id);
+    },
+    onSuccess: () => {
+      toast.success("Supplier deactivated.");
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+    },
+    onError: () => {
+      toast.error("Failed to deactivate supplier.");
+    }
+  });
+
+  const handleDelete = (id: string) => {
     if (confirm("Are you sure you want to deactivate this supplier?")) {
-      try {
-        await supplierService.deleteSupplier(id);
-        toast.success("Supplier deactivated.");
-        fetchSuppliers();
-      } catch (error) {
-        toast.error("Failed to deactivate supplier.");
-      }
+      deleteMutation.mutate(id);
     }
   };
 
@@ -346,8 +348,8 @@ export default function SuppliersPage() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-xl">
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-green-700 hover:bg-green-800 text-white rounded-xl" disabled={isSubmitting}>
-                  {isSubmitting ? (
+                <Button type="submit" className="bg-green-700 hover:bg-green-800 text-white rounded-xl" disabled={createUpdateMutation.isPending}>
+                  {createUpdateMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Saving...

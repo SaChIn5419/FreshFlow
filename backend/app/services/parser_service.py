@@ -159,7 +159,7 @@ class ParserService:
 
     def match_products(self, raw_items: List[dict], customer_id: uuid.UUID) -> List[ParsedItem]:
         # Fetch global products
-        products = self.product_repo.get_all()
+        products, _ = self.product_repo.get_all(skip=0, limit=10000)
         
         # Build dictionary for rapidfuzz
         product_names = {str(p.id): p.name for p in products}

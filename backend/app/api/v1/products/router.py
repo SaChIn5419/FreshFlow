@@ -14,12 +14,19 @@ def get_product_service(db: Session = Depends(deps.get_db)) -> ProductService:
     repo = ProductRepository(db)
     return ProductService(repo)
 
-@router.get("/", response_model=List[Product])
+from typing import List, Optional
+from fastapi import APIRouter, Depends, Query
+from app.schemas.pagination import PaginatedResponse
+
+@router.get("/", response_model=PaginatedResponse[Product])
 def read_products(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    search: Optional[str] = None,
     svc: ProductService = Depends(get_product_service),
     current_user = Depends(deps.get_current_active_user)
 ):
-    return svc.get_all_products()
+    return svc.get_all_products(skip=skip, limit=limit, search=search)
 
 @router.post("/", response_model=Product)
 def create_product(

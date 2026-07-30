@@ -47,15 +47,19 @@ export interface ParseResponse {
   items: ParsedItem[];
 }
 
+import { PaginatedResponse } from './pagination';
+
 export const orderService = {
   createOrder: async (data: OrderCreate): Promise<Order> => {
     const response = await apiClient.post<Order>('/orders/', data);
     return response.data;
   },
 
-  getOrders: async (): Promise<Order[]> => {
-    const response = await apiClient.get<Order[]>('/orders/');
-    return response.data;
+  getOrders: async (skip: number = 0, limit: number = 1000, search?: string): Promise<Order[]> => {
+    const params = new URLSearchParams({ skip: skip.toString(), limit: limit.toString() });
+    if (search) params.append('search', search);
+    const response = await apiClient.get<PaginatedResponse<Order>>(`/orders/?${params.toString()}`);
+    return response.data.items;
   },
   
   getOrder: async (id: string): Promise<Order> => {

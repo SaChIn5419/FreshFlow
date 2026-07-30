@@ -1,9 +1,10 @@
 import uuid
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from app.api import deps
 from app.schemas.supplier import Supplier, SupplierCreate, SupplierUpdate, ProductSupplier, ProductSupplierCreate
+from app.schemas.pagination import PaginatedResponse
 from app.services.supplier_service import SupplierService
 from app.core.exceptions import ProductNotFound
 
@@ -12,12 +13,15 @@ router = APIRouter()
 def get_supplier_service(db: Session = Depends(deps.get_db)) -> SupplierService:
     return SupplierService(db)
 
-@router.get("/", response_model=List[Supplier])
+@router.get("/", response_model=PaginatedResponse[Supplier])
 def read_suppliers(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    search: Optional[str] = None,
     svc: SupplierService = Depends(get_supplier_service),
     current_user = Depends(deps.get_current_active_user)
 ):
-    return svc.get_all_suppliers()
+    return svc.get_all_suppliers(skip=skip, limit=limit, search=search)
 
 @router.post("/", response_model=Supplier)
 def create_supplier(

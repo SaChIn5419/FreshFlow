@@ -57,10 +57,14 @@ export interface ProductSupplierCreate {
   notes?: string;
 }
 
+import { PaginatedResponse } from './pagination';
+
 export const supplierService = {
-  getSuppliers: async (): Promise<Supplier[]> => {
-    const response = await apiClient.get<Supplier[]>('/suppliers/');
-    return response.data;
+  getSuppliers: async (skip: number = 0, limit: number = 1000, search?: string): Promise<Supplier[]> => {
+    const params = new URLSearchParams({ skip: skip.toString(), limit: limit.toString() });
+    if (search) params.append('search', search);
+    const response = await apiClient.get<PaginatedResponse<Supplier>>(`/suppliers/?${params.toString()}`);
+    return response.data.items;
   },
   getSupplier: async (id: string): Promise<Supplier> => {
     const response = await apiClient.get<Supplier>(`/suppliers/${id}`);

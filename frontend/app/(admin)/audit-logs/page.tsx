@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { auditService, AuditLog } from "@/app/services/audit";
 import { PageShell } from "@/app/components/layout/PageShell";
 import { Input } from "@/components/ui/input";
@@ -18,25 +19,13 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 
 export default function AuditLogsPage() {
-  const [logs, setLogs] = useState<AuditLog[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchLogs();
-  }, []);
-
-  const fetchLogs = async () => {
-    try {
-      setIsLoading(true);
-      const data = await auditService.getAuditLogs();
-      setLogs(data);
-    } catch (error) {
-      toast.error("Failed to load audit logs.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { data: logs = [], isLoading } = useQuery({
+    queryKey: ['audit-logs'],
+    queryFn: () => auditService.getAuditLogs(),
+    staleTime: 30000,
+  });
 
   const filteredLogs = logs.filter(
     (log) =>

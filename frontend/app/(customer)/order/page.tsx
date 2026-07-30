@@ -39,7 +39,7 @@ export default function CustomerOrderPage() {
   // 1. Fetch Customers
   const { data: customers, isLoading: isLoadingCustomers } = useQuery({
     queryKey: ["customers"],
-    queryFn: customerService.getCustomers,
+    queryFn: () => customerService.getCustomers(),
     enabled: !!user,
   });
 
@@ -50,7 +50,7 @@ export default function CustomerOrderPage() {
   // 2. Fetch Customer's previous order history to get the last order items
   const { data: previousOrders, isLoading: isLoadingOrders } = useQuery({
     queryKey: ["previousOrders", myCustomer?.id],
-    queryFn: orderService.getOrders,
+    queryFn: () => orderService.getOrders(),
     enabled: !!myCustomer,
   });
 
@@ -81,7 +81,7 @@ export default function CustomerOrderPage() {
   // 4. Fetch all active products
   const { data: allProducts } = useQuery({
     queryKey: ["products"],
-    queryFn: productService.getProducts,
+    queryFn: () => productService.getProducts(),
   });
 
   // Auto-initialize active order list with the items from their LAST ORDER

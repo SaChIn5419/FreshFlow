@@ -1,20 +1,24 @@
 import uuid
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, Response
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.api import deps
 from app.schemas.order import Order, OrderCreate
-from pydantic import BaseModel
-class PriceUpdate(BaseModel):
-    price: float
 from app.schemas.purchase_order import PurchaseOrder as PurchaseOrderSchema
+from app.schemas.pagination import PaginatedResponse
 from app.services import OrderService, PurchaseOrderService
 from app.services.settings_service import SettingsService
 from app.services.template_service import render_packing_slip, render_to_pdf
 from app.repositories import OrderRepository, ProductRepository, CustomerRepository, SettingsRepository
 from app.core.exceptions import OrderNotFound
 from app.api.v1.orders.parser_router import router as parser_router
+
+
+class PriceUpdate(BaseModel):
+    price: float
+
 
 router = APIRouter()
 router.include_router(parser_router)
@@ -24,23 +28,31 @@ def get_order_service(db: Session = Depends(deps.get_db)) -> OrderService:
     product_repo = ProductRepository(db)
     return OrderService(order_repo, product_repo)
 
-@router.get("/", response_model=List[Order])
+
+def get_po_service(db: Session = Depends(deps.get_db)) -> PurchaseOrderService:
+    return PurchaseOrderService(db)
+
+@router.get("/", response_model=PaginatedResponse[Order])
 def read_orders(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    search: Optional[str] = None,
     svc: OrderService = Depends(get_order_service),
     current_user = Depends(deps.get_current_active_user),
     db: Session = Depends(deps.get_db)
 ):
     if current_user.role == "ADMIN":
-        return svc.get_all_orders()
+        return svc.get_all_orders(skip=skip, limit=limit, search=search)
     
     # Get the customer associated with this user
     customer_repo = CustomerRepository(db)
-    customers = customer_repo.get_all()
+    customers = customer_repo.get_all(skip=0, limit=10000)[0]
     my_customer = next((c for c in customers if c.user_id == current_user.id), None)
     if not my_customer:
-        return []
+        return {"items": [], "total": 0, "page": 1, "size": limit, "pages": 1}
         
-    return svc.get_orders_by_customer(my_customer.id)
+    items = svc.get_orders_by_customer(my_customer.id)
+    return {"items": items, "total": len(items), "page": 1, "size": limit, "pages": 1}
 
 @router.post("/", response_model=Order)
 def create_order(
@@ -133,11 +145,10 @@ def update_item_price(
 @router.post("/{id}/generate-purchase-orders", response_model=List[PurchaseOrderSchema])
 def generate_purchase_orders(
     id: uuid.UUID,
-    db: Session = Depends(deps.get_db),
+    po_svc: PurchaseOrderService = Depends(get_po_service),
     current_user = Depends(deps.get_current_active_admin)
 ):
-    po_service = PurchaseOrderService(db)
     try:
-        return po_service.generate_purchase_orders_for_order(id)
+        return po_svc.generate_purchase_orders_for_order(id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

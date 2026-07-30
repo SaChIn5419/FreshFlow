@@ -39,5 +39,8 @@ def test_read_products(client: TestClient, db: Session) -> None:
     response = client.get("/api/v1/products/", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     data = response.json()
-    assert isinstance(data, list)
-    assert len(data) >= 1
+    assert isinstance(data, dict)
+    assert "items" in data
+    assert "total" in data
+    assert isinstance(data["items"], list)
+    assert len(data["items"]) >= 1

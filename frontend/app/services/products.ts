@@ -30,10 +30,14 @@ export interface ProductUpdate {
   is_active?: boolean;
 }
 
+import { PaginatedResponse } from './pagination';
+
 export const productService = {
-  getProducts: async (): Promise<Product[]> => {
-    const response = await apiClient.get<Product[]>('/products/');
-    return response.data;
+  getProducts: async (skip: number = 0, limit: number = 1000, search?: string): Promise<Product[]> => {
+    const params = new URLSearchParams({ skip: skip.toString(), limit: limit.toString() });
+    if (search) params.append('search', search);
+    const response = await apiClient.get<PaginatedResponse<Product>>(`/products/?${params.toString()}`);
+    return response.data.items;
   },
   getProduct: async (id: string): Promise<Product> => {
     const response = await apiClient.get<Product>(`/products/${id}`);

@@ -10,10 +10,13 @@ export interface AuditLog {
   details?: Record<string, any> | string;
 }
 
+import { PaginatedResponse } from './pagination';
+
 export const auditService = {
-  getAuditLogs: async (): Promise<AuditLog[]> => {
-    // The base URL already has /api/v1, so we just use /audit-logs
-    const response = await apiClient.get<AuditLog[]>('/audit-logs');
-    return response.data;
+  getAuditLogs: async (skip: number = 0, limit: number = 1000, search?: string): Promise<AuditLog[]> => {
+    const params = new URLSearchParams({ skip: skip.toString(), limit: limit.toString() });
+    if (search) params.append('search', search);
+    const response = await apiClient.get<PaginatedResponse<AuditLog>>(`/audit-logs?${params.toString()}`);
+    return response.data.items;
   },
 };

@@ -7,6 +7,7 @@ import { useSidebarStore } from "@/app/stores/useSidebarStore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 export default function AdminLayout({
   children,
@@ -40,7 +41,9 @@ export default function AdminLayout({
       >
         <AdminNavbar />
         <main className="flex-1 pt-20 p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto">
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </main>
       </div>
     </div>
