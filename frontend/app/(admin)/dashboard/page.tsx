@@ -98,9 +98,10 @@ export default function DashboardPage() {
 
   // --- Financial & Credit Calculations ---
   const totalRevenue = useMemo(() => {
+    if (stats?.total_revenue) return stats.total_revenue;
     if (!invoices) return 0;
     return invoices.reduce((acc, inv) => acc + Number(inv.grand_total || 0), 0);
-  }, [invoices]);
+  }, [stats, invoices]);
 
   const totalCOGS = useMemo(() => {
     if (!purchaseOrders) return 0;
@@ -135,8 +136,9 @@ export default function DashboardPage() {
   }, [invoices]);
 
   const totalOverdueAmount = useMemo(() => {
+    if (stats?.total_receivables) return stats.total_receivables;
     return overdueInvoices.reduce((acc, inv) => acc + Number(inv.balance_due || 0), 0);
-  }, [overdueInvoices]);
+  }, [stats, overdueInvoices]);
 
   // Overdue Customers List
   const overdueCustomers = useMemo(() => {
