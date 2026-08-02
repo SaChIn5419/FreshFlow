@@ -22,7 +22,13 @@ def test_returns_and_credit_note_reconciliation(db: Session):
     db.add(c1)
     db.commit()
 
+    from app.models.order import Order
+    o1 = Order(customer_id=c1.id)
+    db.add(o1)
+    db.commit()
+
     inv1 = Invoice(
+        order_id=o1.id,
         customer_id=c1.id, invoice_number="RET-001", 
         subtotal=Decimal("1000.0"), gst=Decimal("0"), grand_total=Decimal("1000.0"), 
         balance_due=Decimal("1000.0"), payment_status="Unpaid"
