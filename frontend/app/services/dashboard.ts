@@ -11,6 +11,8 @@ export interface TopProductStat {
 export interface DashboardStats {
   orders_today: number;
   revenue_today: number;
+  total_orders?: number;
+  total_revenue?: number;
   total_receivables: number;
   active_customers: number;
   total_products: number;
