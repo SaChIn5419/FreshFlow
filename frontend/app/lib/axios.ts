@@ -72,7 +72,7 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
       try {
         const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
-        const res = await apiClient.post('/auth/refresh', refreshToken ? { body_refresh_token: refreshToken } : undefined);
+        const res = await apiClient.post('/auth/refresh', refreshToken ? { body_refresh_token: refreshToken } : {});
         
         if (typeof window !== 'undefined' && res.data?.access_token) {
           localStorage.setItem('access_token', res.data.access_token);
@@ -93,9 +93,19 @@ apiClient.interceptors.response.use(
         }
         return Promise.reject(refreshErr);
       }
-    } else if (error.response) {
+    }
+
+    if (error.response) {
       const status = error.response.status;
-      if (status === 403) {
+      if (status === 401) {
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login' && !originalRequest?.url?.includes('/auth/me')) {
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+          toast.error("Your session has expired. Please log in again.");
+        }
+      } else if (status === 403) {
         toast.error("You don't have permission for this action.");
       } else if (status === 404) {
         toast.error("The requested resource no longer exists.");
@@ -106,7 +116,7 @@ apiClient.interceptors.response.use(
       } else if (status >= 500) {
         toast.error("FreshFlow server encountered an error. We are looking into it.");
       }
-    } else if (error.request) {
+    } else if (error.request && !originalRequest?.url?.includes('/auth/refresh')) {
       toast.error("Server unavailable, please try again shortly.");
     }
 
