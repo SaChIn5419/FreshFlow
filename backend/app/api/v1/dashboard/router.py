@@ -25,6 +25,8 @@ class TopProductStat(BaseModel):
 class DashboardStatsResponse(BaseModel):
     orders_today: int
     revenue_today: float
+    total_orders: int
+    total_revenue: float
     total_receivables: float
     active_customers: int
     total_products: int
@@ -39,18 +41,22 @@ def get_dashboard_stats(
     today_start = datetime.combine(date.today(), time.min)
     today_end = datetime.combine(date.today(), time.max)
 
-    # 1. Orders today
+    # 1. Orders today & total orders
     orders_today = db.query(Order).filter(
         Order.created_at >= today_start,
         Order.created_at <= today_end
     ).count()
+    total_orders = db.query(Order).count()
 
-    # 2. Revenue today (from invoices generated today or orders today)
+    # 2. Revenue today & total revenue
     today_invoices = db.query(Invoice).filter(
         Invoice.created_at >= today_start,
         Invoice.created_at <= today_end
     ).all()
     revenue_today = float(sum(inv.grand_total for inv in today_invoices))
+
+    all_invoices = db.query(Invoice).all()
+    total_revenue = float(sum(inv.grand_total for inv in all_invoices))
 
     # 3. Total outstanding receivables
     unpaid_invoices = db.query(Invoice).filter(Invoice.payment_status != "Paid").all()
@@ -94,6 +100,8 @@ def get_dashboard_stats(
     return DashboardStatsResponse(
         orders_today=orders_today,
         revenue_today=round(revenue_today, 2),
+        total_orders=total_orders,
+        total_revenue=round(total_revenue, 2),
         total_receivables=round(total_receivables, 2),
         active_customers=active_customers,
         total_products=total_products,
