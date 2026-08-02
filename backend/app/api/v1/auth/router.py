@@ -24,12 +24,13 @@ limiter = Limiter(key_func=get_remote_address)
 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
     is_secure = settings.ENV != "dev"
+    samesite_mode = "none" if is_secure else "lax"
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
         secure=is_secure,
-        samesite="lax",
+        samesite=samesite_mode,
         max_age=15 * 60,
     )
     response.set_cookie(
@@ -37,7 +38,7 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str) 
         value=refresh_token,
         httponly=True,
         secure=is_secure,
-        samesite="lax",
+        samesite=samesite_mode,
         path="/api/v1/auth/refresh",
         max_age=7 * 24 * 3600,
     )
