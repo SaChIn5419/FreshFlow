@@ -4,8 +4,10 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 from app.models.packing_list import PackingList, PackingListItem
 from app.models.order import Order, OrderStatus
+from app.models.stock_ledger import StockLedger
 from app.repositories.packing_repository import PackingRepository
 from app.repositories.order_repository import OrderRepository
+from app.repositories.product_repository import ProductRepository
 from app.schemas.packing_list import PackingListUpdate, PackingListItemUpdate
 
 
@@ -14,6 +16,7 @@ class PackingService:
         self.db = db
         self.packing_repo = PackingRepository(db)
         self.order_repo = OrderRepository(db)
+        self.product_repo = ProductRepository(db)
 
     def get_packing_list(self, id: uuid.UUID) -> Optional[PackingList]:
         return self.packing_repo.get_by_id(id)
@@ -61,6 +64,8 @@ class PackingService:
         if not item:
             return None
 
+        was_packed = item.is_packed
+
         if data.quantity_packed is not None:
             item.quantity_packed = data.quantity_packed
         if data.is_packed is not None:
@@ -69,6 +74,23 @@ class PackingService:
                 item.quantity_packed = item.quantity_requested
 
         updated_item = self.packing_repo.update_item(item)
+
+        # Decrement stock when item transitions to packed
+        if not was_packed and item.is_packed and item.quantity_packed > 0:
+            product = self.product_repo.get_by_id(item.product_id)
+            if product:
+                packing_list = self.packing_repo.get_by_id(item.packing_list_id)
+                ledger_entry = StockLedger(
+                    product_id=item.product_id,
+                    quantity_change=-item.quantity_packed,
+                    reference_type="PACKING_COMPLETE",
+                    reference_id=packing_list.id if packing_list else item.packing_list_id,
+                )
+                self.db.add(ledger_entry)
+
+                current_stock = product.stock_quantity or Decimal("0.00")
+                product.stock_quantity = current_stock - item.quantity_packed
+                self.product_repo.update(product)
 
         # Check packing list completion status
         packing_list = self.packing_repo.get_by_id(item.packing_list_id)

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderItem, PurchaseOrderStatus
 from app.models.order import Order, OrderStatus
 from app.models.supplier import Supplier, ProductSupplier
+from app.models.stock_ledger import StockLedger
 from app.repositories.purchase_order_repository import PurchaseOrderRepository
 from app.repositories.order_repository import OrderRepository
 from app.repositories.supplier_repository import SupplierRepository
@@ -74,6 +75,14 @@ class PurchaseOrderService:
         if delta != 0:
             product = self.product_repo.get_by_id(item.product_id)
             if product:
+                ledger_entry = StockLedger(
+                    product_id=item.product_id,
+                    quantity_change=delta,
+                    reference_type="PO_RECEIPT",
+                    reference_id=po.id if po else item.purchase_order_id,
+                )
+                self.db.add(ledger_entry)
+
                 product.stock_quantity = (product.stock_quantity or Decimal("0.00")) + delta
                 self.product_repo.update(product)
         

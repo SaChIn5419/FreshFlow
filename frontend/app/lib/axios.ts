@@ -4,17 +4,15 @@ import { toast } from 'sonner';
 export const getApiUrl = () => {
   let url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
   url = url.trim().replace(/\/+$/, '');
-  
-  // Mandatory protocol check: If missing http:// or https://, prepend https://
+
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     url = `https://${url}`;
   }
 
-  // Mandatory path check: Ensure /api/v1 is present
   if (!url.endsWith('/api/v1')) {
     url = `${url}/api/v1`;
   }
-  
+
   return url;
 };
 
@@ -27,7 +25,20 @@ export const apiClient = axios.create({
   },
 });
 
-// Request Interceptor: Attach Bearer token & CSRF header & set baseURL
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = [];
+
+const processQueue = (error: unknown, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token!);
+    }
+  });
+  failedQueue = [];
+};
+
 apiClient.interceptors.request.use(
   (config) => {
     config.baseURL = getApiUrl();
@@ -39,7 +50,7 @@ apiClient.interceptors.request.use(
         if (typeof config.headers.set === 'function') {
           config.headers.set('Authorization', `Bearer ${token}`);
         } else {
-          (config.headers as any)['Authorization'] = `Bearer ${token}`;
+          (config.headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
         }
       }
     }
@@ -47,7 +58,7 @@ apiClient.interceptors.request.use(
     if (typeof config.headers.set === 'function') {
       config.headers.set('X-Requested-With', 'FreshFlow');
     } else {
-      (config.headers as any)['X-Requested-With'] = 'FreshFlow';
+      (config.headers as Record<string, string>)['X-Requested-With'] = 'FreshFlow';
     }
     return config;
   },
@@ -56,7 +67,6 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response Interceptor: Automatic Refresh Token Rotation on 401
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -69,55 +79,84 @@ apiClient.interceptors.response.use(
       !originalRequest.url?.includes('/auth/refresh') &&
       !originalRequest.url?.includes('/auth/login')
     ) {
+      if (isRefreshing) {
+        return new Promise<string>((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers['Authorization'] = `Bearer ${token}`;
+            return apiClient(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
       originalRequest._retry = true;
+      isRefreshing = true;
+
       try {
         const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
-        const res = await apiClient.post('/auth/refresh', refreshToken ? { body_refresh_token: refreshToken } : {});
-        
+        const res = await axios.post(
+          `${getApiUrl()}/auth/refresh`,
+          refreshToken ? { body_refresh_token: refreshToken } : {},
+          { withCredentials: true, headers: { 'X-Requested-With': 'FreshFlow' } }
+        );
+
         if (typeof window !== 'undefined' && res.data?.access_token) {
           localStorage.setItem('access_token', res.data.access_token);
           if (res.data.refresh_token) {
             localStorage.setItem('refresh_token', res.data.refresh_token);
           }
+
+          processQueue(null, res.data.access_token);
+
           originalRequest.headers['Authorization'] = `Bearer ${res.data.access_token}`;
+          return apiClient(originalRequest);
         }
-        
-        return apiClient(originalRequest);
+
+        processQueue(new Error('No access token in refresh response'), null);
+        throw new Error('No access token in refresh response');
       } catch (refreshErr) {
+        processQueue(refreshErr, null);
         if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
           localStorage.removeItem('user');
           window.location.href = '/login';
-          toast.error("Your session has expired. Please log in again.");
+          toast.error('Your session has expired. Please log in again.');
         }
         return Promise.reject(refreshErr);
+      } finally {
+        isRefreshing = false;
       }
     }
 
     if (error.response) {
       const status = error.response.status;
       if (status === 401) {
-        if (typeof window !== 'undefined' && window.location.pathname !== '/login' && !originalRequest?.url?.includes('/auth/me')) {
+        if (
+          typeof window !== 'undefined' &&
+          window.location.pathname !== '/login' &&
+          !originalRequest?.url?.includes('/auth/me')
+        ) {
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
           localStorage.removeItem('user');
           window.location.href = '/login';
-          toast.error("Your session has expired. Please log in again.");
+          toast.error('Your session has expired. Please log in again.');
         }
       } else if (status === 403) {
         toast.error("You don't have permission for this action.");
       } else if (status === 404) {
-        toast.error("The requested resource no longer exists.");
+        toast.error('The requested resource no longer exists.');
       } else if (status === 422) {
-        toast.error("Please check your inputs and try again.");
+        toast.error('Please check your inputs and try again.');
       } else if (status === 503) {
-        toast.error("Database service is temporarily unavailable. Please try again shortly.");
+        toast.error('Database service is temporarily unavailable. Please try again shortly.');
       } else if (status >= 500) {
-        toast.error("FreshFlow server encountered an error. We are looking into it.");
+        toast.error('FreshFlow server encountered an error. We are looking into it.');
       }
     } else if (error.request && !originalRequest?.url?.includes('/auth/refresh')) {
-      toast.error("Server unavailable, please try again shortly.");
+      toast.error('Server unavailable, please try again shortly.');
     }
 
     return Promise.reject(error);

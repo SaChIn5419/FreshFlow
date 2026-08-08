@@ -34,6 +34,7 @@ class InvoiceItem(Base):
     __tablename__ = "invoice_items"
 
     invoice_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("invoices.id"), nullable=False, index=True)
+    product_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=True)
     product_name: Mapped[str] = mapped_column(String, nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     unit: Mapped[str] = mapped_column(String, default="", nullable=False)
@@ -42,3 +43,4 @@ class InvoiceItem(Base):
     total: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
 
     invoice = relationship("Invoice", back_populates="items")
+    product = relationship("Product")

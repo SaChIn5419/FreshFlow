@@ -236,8 +236,8 @@ def seed_db():
         for idx, party_name in enumerate(sorted(unique_parties)):
             cust = db.query(Customer).filter(Customer.restaurant_name == party_name).first()
             if not cust:
-                clean_slug = party_name.lower().replace(" ", "").replace("&", "").replace("(", "").replace(")", "").replace(".", "")[:15]
-                email = f"chef.{clean_slug}@freshflow.com"
+                clean_slug = party_name.lower().replace(" ", "").replace("&", "").replace("(", "").replace(")", "").replace(".", "")[:12]
+                email = f"chef.{clean_slug}{idx+1}@freshflow.com"
                 user = db.query(User).filter(User.email == email).first()
                 if not user:
                     user = User(

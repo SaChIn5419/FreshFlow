@@ -69,6 +69,7 @@ class InvoiceService:
             subtotal += total
             
             invoice_items.append(InvoiceItem(
+                product_id=order_item.product_id,
                 product_name=order_item.product.name if order_item.product else "Unknown Product",
                 quantity=item_data.quantity,
                 unit=order_item.unit,

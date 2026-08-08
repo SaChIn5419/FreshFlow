@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 class InvoiceItemBase(BaseModel):
+    product_id: Optional[uuid.UUID] = None
     product_name: str
     quantity: Decimal
     unit: str
