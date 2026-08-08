@@ -7,19 +7,27 @@ from app.schemas.audit_log import AuditLogCreate
 
 class AuditService:
     @staticmethod
+    def _to_uuid(value) -> uuid.UUID:
+        if isinstance(value, uuid.UUID):
+            return value
+        if isinstance(value, str) and value:
+            return uuid.UUID(value)
+        return uuid.uuid4()
+
+    @staticmethod
     def log_action(
         db: Session,
-        user_id: str,
+        user_id,
         action: str,
         entity_type: str,
-        entity_id: str,
+        entity_id=None,
         details: Optional[str] = None
     ) -> AuditLog:
         log_entry = AuditLog(
-            user_id=str(user_id),
+            user_id=AuditService._to_uuid(user_id),
             action=action,
             entity_type=entity_type,
-            entity_id=str(entity_id),
+            entity_id=AuditService._to_uuid(entity_id),
             details=details
         )
         db.add(log_entry)
