@@ -36,4 +36,3 @@ def trigger_seed_database(
     from app.database.seed import seed_db
     seed_db()
     return {"message": "Database seeded successfully from Excel files."}
-
