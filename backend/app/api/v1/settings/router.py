@@ -29,12 +29,11 @@ def update_settings(
     return svc.update_settings(data)
 
 
-from app.database.seed import seed_db
-
 @router.post("/seed-database")
 def trigger_seed_database(
     current_user=Depends(deps.get_current_active_admin)
 ):
+    from app.database.seed import seed_db
     seed_db()
     return {"message": "Database seeded successfully from Excel files."}
 
