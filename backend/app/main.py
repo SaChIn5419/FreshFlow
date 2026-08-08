@@ -24,24 +24,8 @@ async def lifespan(app: FastAPI):
     from app.database.base_class import Base
     import app.models
 
-    # Run alembic migrations first (handles column additions, etc.)
-    try:
-        from alembic.config import Config
-        from alembic import command
-        alembic_cfg = Config("alembic.ini")
-        command.upgrade(alembic_cfg, "head")
-    except Exception as e:
-        print(f"Alembic migration warning: {e}")
-
-    # Fallback: create any tables that alembic doesn't know about yet
+    # create_all handles tables that alembic doesn't know about (e.g. stock_ledger)
     Base.metadata.create_all(bind=engine)
-
-    # Auto-seed the database
-    from app.database.seed import seed_db
-    try:
-        seed_db()
-    except Exception as e:
-        print(f"Startup database seeding error: {e}")
 
     yield
 
