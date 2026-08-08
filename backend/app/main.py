@@ -26,8 +26,10 @@ async def lifespan(app: FastAPI):
 
     # Run alembic migrations first (handles column additions, etc.)
     try:
-        import subprocess
-        subprocess.run(["alembic", "upgrade", "head"], check=False, capture_output=True)
+        from alembic.config import Config
+        from alembic import command
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
     except Exception as e:
         print(f"Alembic migration warning: {e}")
 
