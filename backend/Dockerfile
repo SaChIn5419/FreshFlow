@@ -22,5 +22,5 @@ RUN uv sync --frozen --no-dev
 # Copy application code
 COPY . .
 
-# Run migrations then start the application
-CMD ["sh", "-c", "uv run alembic upgrade head && uv run uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Start the application (create_all in lifespan handles table creation)
+CMD ["sh", "-c", "uv run uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
